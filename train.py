@@ -3,8 +3,8 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 import random
 from torch.utils.data import DataLoader
-from torch.optim import Adam, SGD
-from torch.optim.lr_scheduler import StepLR
+from torch.optim import Adam, SGD, AdamW
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
 import torch.nn as nn
 import os
 import yaml
@@ -69,10 +69,24 @@ def main(config):
         optimizer = Adam(model.parameters(), lr=config['training']['learning_rate'])
     elif config['training']['optimizer'] == 'sgd':
         optimizer = SGD(model.parameters(), lr=config['training']['learning_rate'], momentum=0.9)
+    elif config['training']['optimizer'] == 'adamw':
+        optimizer = AdamW(model.parameters(), lr=config['training']['learning_rate'])
     else:
         raise ValueError("Unsupported optimizer type")
 
-    scheduler = StepLR(optimizer, step_size=config['training']['scheduler']['step_size'], gamma=config['training']['scheduler']['gamma'])
+    scheduler = None
+    scheduler_name = config['training']['scheduler']['name']
+    if scheduler_name == 'step_lr':
+        scheduler = StepLR(optimizer, step_size=config['training']['scheduler']['step_size'], gamma=config['training']['scheduler']['gamma'])
+    elif scheduler_name == 'cosine_annealing':
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=config['training']['scheduler']['T_max'],
+            eta_min=config['training']['scheduler'].get('eta_min', 0)
+        )
+    else:
+        raise ValueError("Unsupported scheduler type")
+
     num_epochs = config['training']['epochs']
     best_loss = float('inf')
 
@@ -116,7 +130,9 @@ def main(config):
                 best_loss = epoch_loss
                 best_model_wts = model.state_dict()
 
-        if phase == 'train':
+        if scheduler_name == 'step_lr':
+            scheduler.step()
+        elif scheduler_name == 'cosine_annealing' and phase == 'train':
             scheduler.step()
 
     model.load_state_dict(best_model_wts)
@@ -131,4 +147,3 @@ if __name__ == '__main__':
     with open(args.config) as f:
         config = yaml.safe_load(f)
     main(config)
-

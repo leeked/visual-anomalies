@@ -10,11 +10,13 @@ training:
   epochs: 10
   batch_size: 32
   learning_rate: 0.001
-  optimizer: adam
+  optimizer: adam  # Options: 'adam', 'sgd', 'adamw'
   scheduler:
-    name: step_lr
+    name: step_lr  # Options: 'step_lr', 'cosine_annealing'
     step_size: 7
     gamma: 0.1
+    T_max: 10  # For CosineAnnealingLR
+    eta_min: 0  # For CosineAnnealingLR
   seed: 42  # For reproducibility
 
 data:
