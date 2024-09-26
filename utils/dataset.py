@@ -51,9 +51,10 @@ class ObjectDetectionDataset(Dataset):
 
         # Convert labels to numeric labels
         label_set = sorted(list(set([sample['label'] for sample in all_samples])))
-        label_to_index = {label: idx for idx, label in enumerate(label_set)}
+        self.label_to_index = {label: idx for idx, label in enumerate(label_set)}
+        self.index_to_label = {idx: label for label, idx in self.label_to_index.items()}
         for sample in all_samples:
-            sample['label'] = label_to_index[sample['label']]
+            sample['label'] = self.label_to_index[sample['label']]
 
         # Split the data
         random.seed(seed)
@@ -84,3 +85,5 @@ class ObjectDetectionDataset(Dataset):
             sample = self.transforms(sample)
         return sample
 
+    def get_class_names(self):
+        return [self.index_to_label[i] for i in range(len(self.index_to_label))]
