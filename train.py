@@ -87,23 +87,26 @@ def main(config):
         print(f'Epoch {epoch+1}/{num_epochs}')
         print('-' * 10)
         for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()
-            else:
-                model.eval()
+            model.train()
             running_loss = 0.0
-            for images, targets in dataloaders[phase]:
-                images = list(img.to(device) for img in images)
-                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-                optimizer.zero_grad()
-                with torch.set_grad_enabled(phase == 'train'):
+            if phase == 'train':
+                for images, targets in dataloaders[phase]:
+                    images = list(img.to(device) for img in images)
+                    targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+                    optimizer.zero_grad()
                     loss_dict = model(images, targets)
                     losses = sum(loss for loss in loss_dict.values())
-
-                    if phase == 'train':
-                        losses.backward()
-                        optimizer.step()
-                running_loss += losses.item() * len(images)
+                    losses.backward()
+                    optimizer.step()
+                    running_loss += losses.item() * len(images)
+            else:
+                with torch.no_grad():
+                    for images, targets in dataloaders[phase]:
+                        images = list(img.to(device) for img in images)
+                        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+                        loss_dict = model(images, targets)
+                        losses = sum(loss for loss in loss_dict.values())
+                        running_loss += losses.item() * len(images)
             epoch_loss = running_loss / len(datasets[phase])
             print(f'{phase} Loss: {epoch_loss:.4f}')
             if phase == 'val' and epoch_loss < best_loss:
@@ -112,7 +115,7 @@ def main(config):
 
         if scheduler_name == 'step_lr':
             scheduler.step()
-        elif scheduler_name == 'cosine_annealing' and phase == 'train':
+        elif scheduler_name == 'cosine_annealing':
             scheduler.step()
 
     model.load_state_dict(best_model_wts)

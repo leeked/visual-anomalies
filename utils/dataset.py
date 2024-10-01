@@ -103,8 +103,12 @@ class ObjectDetectionDataset(Dataset):
             boxes.append(bbox)
             labels.append(label)
 
-        boxes = torch.tensor(boxes, dtype=torch.float32)  # [num_objects, 4]
-        labels = torch.tensor(labels, dtype=torch.int64)   # [num_objects]
+        if boxes:
+            boxes = torch.tensor(boxes, dtype=torch.float32)
+            labels = torch.tensor(labels, dtype=torch.int64)
+        else:
+            boxes = torch.empty((0, 4), dtype=torch.float32)
+            labels = torch.empty((0,), dtype=torch.int64)
 
         targets['boxes'] = boxes
         targets['labels'] = labels

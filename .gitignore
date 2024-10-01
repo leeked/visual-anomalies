@@ -1,2 +1,4 @@
 configs/test.yaml
 __pycache__/
+checkpoints/
+logs/
