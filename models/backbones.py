@@ -3,6 +3,10 @@ import torchvision
 from torchvision.models.detection.backbone_utils import BackboneWithFPN
 from torchvision.models._utils import IntermediateLayerGetter
 
+# SSL Certificate Verification error workaround
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 def get_backbone(backbone_name, pretrained):
     if backbone_name == 'resnet50':
         backbone = torchvision.models.detection.backbone_utils.resnet_fpn_backbone('resnet50', pretrained=pretrained)

@@ -9,7 +9,7 @@ import torch.nn as nn
 import os
 import yaml
 import argparse
-from models import get_model
+from models.init import get_model
 from utils.dataset import ObjectDetectionDataset
 from utils.transforms import get_transform
 from torchvision import transforms
