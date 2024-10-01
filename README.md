@@ -61,6 +61,8 @@ class_num x_corner y_corner width height
 - `x_corner`, `y_corner`, `width`, `height`: Floats representing the bounding box coordinates.
 - If an image has no objects, the corresponding annotation file should be empty.
 
+**Note**: The code automatically converts bounding boxes from the format `[xmin, ymin, width, height]` to `[xmin, ymin, xmax, ymax]` as required by Faster R-CNN.
+
 ## Usage
 
 ### Install dependencies

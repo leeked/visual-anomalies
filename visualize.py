@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 import os
 import yaml
 import argparse
-from models import get_model
+from models.init import get_model
 from utils.dataset import ObjectDetectionDataset
-from utils.transforms import ToTensor, Resize
+from utils.transforms import get_transform
 from torchvision import transforms
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -24,7 +24,21 @@ def main(config):
     cudnn.benchmark = False
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = get_model(config)
+    # Prepare data
+    split_ratios = (config['data']['train_split'], config['data']['val_split'], config['data']['test_split'])
+
+    dataset = ObjectDetectionDataset(
+        data_dir=config['data']['data_dir'],
+        split='test',
+        transforms=get_transform(train=False),
+        split_ratios=split_ratios,
+        seed=seed
+    )
+
+    num_classes = len(dataset.get_class_names())
+    config['model']['num_classes'] = num_classes
+
+    model = get_model(config, num_classes)
     model = model.to(device)
     checkpoint_path = os.path.join(config['logging']['checkpoint_dir'], 'best_model.pth')
     if os.path.exists(checkpoint_path):
@@ -33,23 +47,7 @@ def main(config):
         print(f"Checkpoint not found at {checkpoint_path}")
         return
 
-    data_transforms = transforms.Compose([
-        Resize((config['data']['input_size'], config['data']['input_size'])),
-        ToTensor()
-    ])
-
-    # Use the test split for visualization
-    split_ratios = (config['data']['train_split'], config['data']['val_split'], config['data']['test_split'])
-
-    dataset = ObjectDetectionDataset(
-        data_dir=config['data']['data_dir'],
-        split='test',
-        transforms=data_transforms,
-        split_ratios=split_ratios,
-        seed=seed
-    )
-
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=config['data']['num_workers'])
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=config['data']['num_workers'], collate_fn=lambda x: tuple(zip(*x)))
 
     model.eval()
 
@@ -61,57 +59,47 @@ def main(config):
         os.makedirs(save_dir)
 
     with torch.no_grad():
-        for idx, sample in enumerate(dataloader):
+        for idx, (images, targets) in enumerate(dataloader):
             if idx >= 5:  # Visualize 5 samples
                 break
-            inputs = sample['image'].to(device)
-            labels = sample['label'].to(device)
-            bboxes = sample['bbox'].to(device)
-            img = sample['image'][0].cpu().permute(1, 2, 0).numpy()
+            image = images[0].to(device)
+            target = targets[0]
+            img = images[0].cpu().permute(1, 2, 0).numpy()
             img = np.clip(img, 0, 1)
 
             fig, ax = plt.subplots(1)
             ax.imshow(img)
 
-            # Draw ground truth bbox
-            true_bbox = bboxes[0].cpu().numpy()
-            rect = patches.Rectangle((true_bbox[0], true_bbox[1]), true_bbox[2], true_bbox[3],
-                                     linewidth=2, edgecolor='g', facecolor='none')
-            ax.add_patch(rect)
-            ax.text(true_bbox[0], true_bbox[1]-10, f"GT: {class_names[labels[0].item()]}",
-                    color='g', fontsize=12)
+            # Draw ground truth bboxes
+            true_boxes = target['boxes'].cpu().numpy()
+            true_labels = target['labels'].cpu().numpy()
+            for i in range(len(true_boxes)):
+                bbox = true_boxes[i]
+                xmin, ymin, xmax, ymax = bbox
+                width = xmax - xmin
+                height = ymax - ymin
+                rect = patches.Rectangle((xmin, ymin), width, height,
+                                         linewidth=2, edgecolor='g', facecolor='none')
+                ax.add_patch(rect)
+                ax.text(xmin, ymin - 10, f"GT: {class_names[true_labels[i]]}",
+                        color='g', fontsize=12)
 
-            if hasattr(model, 'roi_heads'):
-                # Detection model
-                outputs = model(inputs)
-                pred_bboxes = outputs[0]['boxes'].cpu().numpy()
-                pred_labels = outputs[0]['labels'].cpu().numpy()
-                scores = outputs[0]['scores'].cpu().numpy()
-                for i in range(len(pred_bboxes)):
-                    pred_bbox = pred_bboxes[i]
-                    pred_label = pred_labels[i]
-                    score = scores[i]
-                    # Draw predicted bbox
-                    x1, y1, x2, y2 = pred_bbox
-                    width = x2 - x1
-                    height = y2 - y1
-                    rect = patches.Rectangle((x1, y1), width, height,
-                                             linewidth=2, edgecolor='r', facecolor='none')
-                    ax.add_patch(rect)
-                    ax.text(x1, y1-10, f"Pred: {class_names[pred_label]} ({score:.2f})",
-                            color='r', fontsize=12)
-            else:
-                outputs_class, outputs_bbox = model(inputs)
-                _, preds = torch.max(outputs_class, 1)
-                pred_bboxes = outputs_bbox.cpu().numpy()
-                pred_labels = preds.cpu().numpy()
-                # Draw predicted bbox
-                pred_bbox = pred_bboxes[0]
-                pred_label = pred_labels[0]
-                rect = patches.Rectangle((pred_bbox[0], pred_bbox[1]), pred_bbox[2], pred_bbox[3],
+            # Get model predictions
+            images_list = [image]
+            outputs = model(images_list)
+            pred_boxes = outputs[0]['boxes'].cpu().numpy()
+            pred_labels = outputs[0]['labels'].cpu().numpy()
+            scores = outputs[0]['scores'].cpu().numpy()
+
+            for i in range(len(pred_boxes)):
+                bbox = pred_boxes[i]
+                xmin, ymin, xmax, ymax = bbox
+                width = xmax - xmin
+                height = ymax - ymin
+                rect = patches.Rectangle((xmin, ymin), width, height,
                                          linewidth=2, edgecolor='r', facecolor='none')
                 ax.add_patch(rect)
-                ax.text(pred_bbox[0], pred_bbox[1]-10, f"Pred: {class_names[pred_label]}",
+                ax.text(xmin, ymin - 10, f"Pred: {class_names[pred_labels[i]]} ({scores[i]:.2f})",
                         color='r', fontsize=12)
 
             # Save the figure
@@ -126,4 +114,3 @@ if __name__ == '__main__':
     with open(args.config) as f:
         config = yaml.safe_load(f)
     main(config)
-

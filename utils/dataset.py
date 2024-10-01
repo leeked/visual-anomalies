@@ -41,15 +41,20 @@ class ObjectDetectionDataset(Dataset):
                             continue
                         parts = line.strip().split()
                         class_num = int(parts[0])
-                        bbox = list(map(float, parts[1:5]))  # x_corner y_corner width height
-                        objects.append({'class_num': class_num, 'bbox': bbox})
+                        bbox = list(map(float, parts[1:5]))  # xmin, ymin, width, height
+                        # Convert bbox from [xmin, ymin, width, height] to [xmin, ymin, xmax, ymax]
+                        xmin, ymin, width, height = bbox
+                        xmax = xmin + width
+                        ymax = ymin + height
+                        bbox_converted = [xmin, ymin, xmax, ymax]
+                        objects.append({'class_num': class_num, 'bbox': bbox_converted})
             else:
                 # No label file, treat as image with no objects
                 pass
 
             sample = {
                 'image_path': image_path,
-                'objects': objects  # List of {'class_num': int, 'bbox': [x, y, width, height]}
+                'objects': objects  # List of {'class_num': int, 'bbox': [xmin, ymin, xmax, ymax]}
             }
             all_samples.append(sample)
 
@@ -94,7 +99,7 @@ class ObjectDetectionDataset(Dataset):
         for obj in sample['objects']:
             class_num = obj['class_num']
             label = self.class_num_to_index[class_num]
-            bbox = obj['bbox']
+            bbox = obj['bbox']  # [xmin, ymin, xmax, ymax]
             boxes.append(bbox)
             labels.append(label)
 
