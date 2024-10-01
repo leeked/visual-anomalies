@@ -11,7 +11,7 @@ import yaml
 import argparse
 from models import get_model
 from utils.dataset import ObjectDetectionDataset
-from utils.transforms import ToTensor, Resize, RandomHorizontalFlip
+from utils.transforms import get_transform
 from torchvision import transforms
 
 def main(config):
@@ -25,43 +25,36 @@ def main(config):
     cudnn.benchmark = False
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = get_model(config)
-    model = model.to(device)
 
-    data_transforms = {
-        'train': transforms.Compose([
-            Resize((config['data']['input_size'], config['data']['input_size'])),
-            RandomHorizontalFlip(),
-            ToTensor()
-        ]),
-        'val': transforms.Compose([
-            Resize((config['data']['input_size'], config['data']['input_size'])),
-            ToTensor()
-        ]),
-    }
-
+    # Prepare data
     split_ratios = (config['data']['train_split'], config['data']['val_split'], config['data']['test_split'])
 
     datasets = {
         'train': ObjectDetectionDataset(
             data_dir=config['data']['data_dir'],
             split='train',
-            transforms=data_transforms['train'],
+            transforms=get_transform(train=True),
             split_ratios=split_ratios,
             seed=seed
         ),
         'val': ObjectDetectionDataset(
             data_dir=config['data']['data_dir'],
             split='val',
-            transforms=data_transforms['val'],
+            transforms=get_transform(train=False),
             split_ratios=split_ratios,
             seed=seed
         )
     }
 
+    num_classes = len(datasets['train'].get_class_names())
+    config['model']['num_classes'] = num_classes
+
+    model = get_model(config, num_classes)
+    model = model.to(device)
+
     dataloaders = {
-        'train': DataLoader(datasets['train'], batch_size=config['training']['batch_size'], shuffle=True, num_workers=config['data']['num_workers']),
-        'val': DataLoader(datasets['val'], batch_size=config['training']['batch_size'], shuffle=False, num_workers=config['data']['num_workers'])
+        'train': DataLoader(datasets['train'], batch_size=config['training']['batch_size'], shuffle=True, num_workers=config['data']['num_workers'], collate_fn=lambda x: tuple(zip(*x))),
+        'val': DataLoader(datasets['val'], batch_size=config['training']['batch_size'], shuffle=False, num_workers=config['data']['num_workers'], collate_fn=lambda x: tuple(zip(*x)))
     }
 
     optimizer = None
@@ -99,31 +92,18 @@ def main(config):
             else:
                 model.eval()
             running_loss = 0.0
-            for samples in dataloaders[phase]:
-                inputs = samples['image'].to(device)
-                labels = samples['label'].to(device)
-                bboxes = samples['bbox'].to(device)
+            for images, targets in dataloaders[phase]:
+                images = list(img.to(device) for img in images)
+                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 optimizer.zero_grad()
                 with torch.set_grad_enabled(phase == 'train'):
-                    if hasattr(model, 'roi_heads'):  # Detection model
-                        targets = []
-                        for i in range(len(labels)):
-                            target = {}
-                            target['boxes'] = bboxes[i].unsqueeze(0)
-                            target['labels'] = labels[i].unsqueeze(0)
-                            targets.append(target)
-                        loss_dict = model(inputs, targets)
-                        losses = sum(loss for loss in loss_dict.values())
-                    else:
-                        outputs_class, outputs_bbox = model(inputs)
-                        loss_class = nn.CrossEntropyLoss()(outputs_class, labels)
-                        loss_bbox = nn.SmoothL1Loss()(outputs_bbox, bboxes)
-                        losses = loss_class + loss_bbox
+                    loss_dict = model(images, targets)
+                    losses = sum(loss for loss in loss_dict.values())
 
                     if phase == 'train':
                         losses.backward()
                         optimizer.step()
-                running_loss += losses.item() * inputs.size(0)
+                running_loss += losses.item() * len(images)
             epoch_loss = running_loss / len(datasets[phase])
             print(f'{phase} Loss: {epoch_loss:.4f}')
             if phase == 'val' and epoch_loss < best_loss:

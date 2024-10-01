@@ -1,5 +1,4 @@
 import os
-import json
 import random
 from PIL import Image
 import torch
@@ -9,7 +8,7 @@ class ObjectDetectionDataset(Dataset):
     def __init__(self, data_dir, split='train', transforms=None, split_ratios=(0.7, 0.15, 0.15), seed=42):
         """
         Args:
-            data_dir (string): Root directory of the dataset.
+            data_dir (string): Root directory of the dataset, which contains 'images/' and 'labels/' subdirectories.
             split (string): 'train', 'val', or 'test'.
             transforms (callable, optional): Optional transform to be applied on a sample.
             split_ratios (tuple): Ratios for train, val, and test splits.
@@ -20,41 +19,48 @@ class ObjectDetectionDataset(Dataset):
         self.samples = []
         self.split = split
 
+        images_dir = os.path.join(data_dir, 'images')
+        labels_dir = os.path.join(data_dir, 'labels')
+
         # Gather all samples
         all_samples = []
-        categories = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
-        for category in categories:
-            category_dir = os.path.join(data_dir, category)
-            folders = [d for d in os.listdir(category_dir) if os.path.isdir(os.path.join(category_dir, d))]
-            for folder in folders:
-                folder_dir = os.path.join(category_dir, folder)
-                bounding_box_file = os.path.join(folder_dir, 'bounding_box.json')
-                if not os.path.exists(bounding_box_file):
-                    continue
-                with open(bounding_box_file, 'r') as f:
-                    bbox_data = json.load(f)
-                # Assume bbox_data contains bounding box coordinates as [x, y, width, height]
+        image_files = [f for f in os.listdir(images_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        image_files.sort()  # Ensure consistent order
 
-                annotated_dir = os.path.join(folder_dir, 'annotated')
-                if not os.path.exists(annotated_dir):
-                    continue
-                for root, _, files in os.walk(annotated_dir):
-                    for file in files:
-                        if file.lower().endswith(('.jpg', '.png', '.jpeg')):
-                            img_path = os.path.join(root, file)
-                            sample = {
-                                'image_path': img_path,
-                                'bbox': bbox_data,  # Adjust as per the actual structure
-                                'label': category  # Use category as label
-                            }
-                            all_samples.append(sample)
+        for image_file in image_files:
+            image_id = os.path.splitext(image_file)[0]
+            image_path = os.path.join(images_dir, image_file)
+            label_file = os.path.join(labels_dir, image_id + '.txt')
 
-        # Convert labels to numeric labels
-        label_set = sorted(list(set([sample['label'] for sample in all_samples])))
-        self.label_to_index = {label: idx for idx, label in enumerate(label_set)}
-        self.index_to_label = {idx: label for label, idx in self.label_to_index.items()}
+            objects = []
+            if os.path.exists(label_file):
+                with open(label_file, 'r') as f:
+                    lines = f.readlines()
+                    for line in lines:
+                        if line.strip() == '':
+                            continue
+                        parts = line.strip().split()
+                        class_num = int(parts[0])
+                        bbox = list(map(float, parts[1:5]))  # x_corner y_corner width height
+                        objects.append({'class_num': class_num, 'bbox': bbox})
+            else:
+                # No label file, treat as image with no objects
+                pass
+
+            sample = {
+                'image_path': image_path,
+                'objects': objects  # List of {'class_num': int, 'bbox': [x, y, width, height]}
+            }
+            all_samples.append(sample)
+
+        # Get the set of all class numbers
+        class_nums = set()
         for sample in all_samples:
-            sample['label'] = self.label_to_index[sample['label']]
+            for obj in sample['objects']:
+                class_nums.add(obj['class_num'])
+        class_nums = sorted(list(class_nums))
+        self.class_num_to_index = {class_num: idx for idx, class_num in enumerate(class_nums)}
+        self.index_to_class_num = {idx: class_num for class_num, idx in self.class_num_to_index.items()}
 
         # Split the data
         random.seed(seed)
@@ -78,12 +84,30 @@ class ObjectDetectionDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.samples[idx]
         image = Image.open(sample['image_path']).convert("RGB")
-        bbox = torch.tensor(sample['bbox'], dtype=torch.float32)
-        label = sample['label']
-        sample = {'image': image, 'bbox': bbox, 'label': label}
+        width, height = image.size
+
+        # Prepare target
+        targets = {}
+        boxes = []
+        labels = []
+
+        for obj in sample['objects']:
+            class_num = obj['class_num']
+            label = self.class_num_to_index[class_num]
+            bbox = obj['bbox']
+            boxes.append(bbox)
+            labels.append(label)
+
+        boxes = torch.tensor(boxes, dtype=torch.float32)  # [num_objects, 4]
+        labels = torch.tensor(labels, dtype=torch.int64)   # [num_objects]
+
+        targets['boxes'] = boxes
+        targets['labels'] = labels
+
         if self.transforms:
-            sample = self.transforms(sample)
-        return sample
+            image = self.transforms(image)
+
+        return image, targets
 
     def get_class_names(self):
-        return [self.index_to_label[i] for i in range(len(self.index_to_label))]
+        return [str(self.index_to_class_num[i]) for i in range(len(self.index_to_class_num))]

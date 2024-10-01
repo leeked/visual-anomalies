@@ -1,9 +1,10 @@
 model:
   name: resnet50
   pretrained: true
-  num_classes: 10
+  num_classes: null  # Will be set based on dataset
   custom_model_file: null  # Path to a custom model file, if any
   backbone: resnet50  # Options: 'resnet50', 'vgg16', 'vit', 'simclr'
+  custom_backbone_file: null  # Path to a custom backbone file, if any
   detection_model: null  # Options: 'fasterrcnn_resnet50_fpn', etc.
 
 training:
@@ -20,7 +21,7 @@ training:
   seed: 42  # For reproducibility
 
 data:
-  data_dir: data/  # Root directory of the data
+  data_dir: data/  # Root directory of the data, containing 'images/' and 'labels/' subdirectories
   input_size: 224
   num_workers: 4
   augmentations:

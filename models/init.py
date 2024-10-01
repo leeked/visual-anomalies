@@ -2,12 +2,11 @@ import torch
 import torchvision
 from .backbones import get_backbone
 
-def get_model(config):
+def get_model(config, num_classes):
     model = None
     if config['model']['detection_model']:
         # Use an out-of-the-box object detection model
         detection_model_name = config['model']['detection_model']
-        num_classes = config['model']['num_classes']
         pretrained = config['model']['pretrained']
 
         if hasattr(torchvision.models.detection, detection_model_name):
@@ -33,11 +32,19 @@ def get_model(config):
         else:
             # Load backbone model
             backbone_name = config['model']['backbone']
-            num_classes = config['model']['num_classes']
             pretrained = config['model']['pretrained']
 
-            # Get the backbone model
-            backbone, backbone_out_channels = get_backbone(backbone_name, pretrained)
+            # Check if custom backbone is provided
+            if config['model']['custom_backbone_file']:
+                # Load custom backbone from the specified file
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("custom_backbone", config['model']['custom_backbone_file'])
+                custom_backbone_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(custom_backbone_module)
+                backbone, backbone_out_channels = custom_backbone_module.get_custom_backbone(config)
+            else:
+                # Get the backbone model
+                backbone, backbone_out_channels = get_backbone(backbone_name, pretrained)
 
             model = torchvision.models.detection.FasterRCNN(backbone, num_classes=num_classes)
     return model

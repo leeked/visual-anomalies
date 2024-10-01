@@ -5,8 +5,8 @@ This project provides boilerplate code for training PyTorch vision-based object 
 ## Features
 
 - Configurable via YAML configuration files.
-- Supports custom models and pre-trained models from torchvision.
-- Training and evaluation scripts included.
+- Supports custom models and custom backbones.
+- Training, evaluation, and visualization scripts included.
 - Computes metrics like Intersection over Union (IoU), accuracy, precision, and recall.
 - Easy to extend and customize.
 
@@ -16,6 +16,15 @@ This project provides boilerplate code for training PyTorch vision-based object 
 project/ 
 ├── configs/ 
 │ └── default.yaml 
+├── data/ #ignored
+│ ├── images/ 
+│ │ ├── 0001.png 
+│ │ ├── 0002.png 
+│ │ └── ... 
+│ ├── labels/ 
+│ │ ├── 0001.txt 
+│ │ ├── 0002.txt 
+│ │ └── ... 
 ├── models/ 
 │ ├── init.py 
 │ ├── backbones.py 
@@ -27,17 +36,41 @@ project/
 │ └── metrics.py 
 ├── train.py 
 ├── evaluate.py 
+├── visualize.py 
 ├── requirements.txt 
 └── README.md
 ```
+
+## Data Format
+
+The data should be organized as follows:
+
+- `data/images/`: Contains images named `0001.png`, `0002.png`, etc.
+- `data/labels/`: Contains corresponding annotation files named `0001.txt`, `0002.txt`, etc.
+
+Each annotation file should have the following format:
+
+```
+class_num x_corner y_corner width height 
+class_num x_corner y_corner width height 
+...
+```
+
+- Each line represents one object.
+- `class_num`: Integer representing the class number.
+- `x_corner`, `y_corner`, `width`, `height`: Floats representing the bounding box coordinates.
+- If an image has no objects, the corresponding annotation file should be empty.
 
 ## Usage
 
 ### Install dependencies
 
-```
-pip install -r requirements.txt
-```
+```pip install -r requirements.txt```
+
+### Prepare Data
+
+- Place your images in the `data/images/` directory.
+- Place your annotations in the `data/labels/` directory, following the format specified above.
 
 ### Configure Training
 
@@ -45,20 +78,37 @@ pip install -r requirements.txt
 
 ### Train the Model
 
-```
-python train.py --config configs/default.yaml
-```
+```python train.py --config configs/default.yaml```
 
 ### Evaluate the Model
 
-```
-python evaluate.py --config configs/default.yaml
+```python evaluate.py --config configs/default.yaml```
+
+### Visualize Model Predictions
+
+```python visualize.py --config configs/default.yaml```
+
+## Custom Backbones
+
+To use a custom backbone, create a Python file defining your backbone and specify the path in the configuration file under `model.custom_backbone_file`.
+
+The custom backbone file should define a function `get_custom_backbone(config)` that returns a tuple `(backbone, backbone_out_channels)`.
+
+Example `custom_backbone.py`:
+
+```python
+def get_custom_backbone(config):
+    import torchvision
+    backbone = torchvision.models.mobilenet_v2(pretrained=config['model']['pretrained']).features
+    backbone_out_channels = 1280  # For MobileNetV2
+    return backbone, backbone_out_channels
 ```
 
 ## Custom Models
 
-- To use a custom model, create a Python file defining your model and specify the path in the configuration file under `model.custom_model_file`.
-- The custom model should be a subclass of `torch.nn.Module` and return both classification and bounding box regression outputs.
+To use a custom model, create a Python file defining your model and specify the path in the configuration file under `model.custom_model_file`.
+
+The custom model should be a subclass of `torch.nn.Module` and return predictions compatible with the rest of the codebase.
 
 ## License
 
