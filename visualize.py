@@ -6,10 +6,9 @@ from torch.utils.data import DataLoader
 import os
 import yaml
 import argparse
-from models.init import get_model
+from models import get_model
 from utils.dataset import ObjectDetectionDataset
 from utils.transforms import get_transform
-from torchvision import transforms
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -24,13 +23,21 @@ def main(config):
     cudnn.benchmark = False
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    backbone_name = config['model']['backbone']
+    input_size = config['data']['input_size']
+
     # Prepare data
-    split_ratios = (config['data']['train_split'], config['data']['val_split'], config['data']['test_split'])
+    split_ratios = (
+        config['data']['train_split'],
+        config['data']['val_split'],
+        config['data']['test_split']
+    )
 
     dataset = ObjectDetectionDataset(
         data_dir=config['data']['data_dir'],
         split='test',
-        transforms=get_transform(train=False),
+        transforms=get_transform(train=False, input_size=input_size),
         split_ratios=split_ratios,
         seed=seed
     )
@@ -47,7 +54,13 @@ def main(config):
         print(f"Checkpoint not found at {checkpoint_path}")
         return
 
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=config['data']['num_workers'], collate_fn=lambda x: tuple(zip(*x)))
+    dataloader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=config['data']['num_workers'],
+        collate_fn=lambda x: tuple(zip(*x))
+    )
 
     model.eval()
 

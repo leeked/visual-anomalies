@@ -14,12 +14,12 @@ def get_backbone(backbone_name, pretrained):
             weights = torchvision.models.ResNet50_Weights.DEFAULT
         else:
             weights = None
-        backbone = torchvision.models.detection.backbone_utils.resnet_fpn_backbone(backbone_name='resnet50', weights=weights)
+        backbone = torchvision.models.detection.backbone_utils.resnet_fpn_backbone(
+            backbone_name='resnet50', weights=weights
+        )
         backbone_out_channels = 256
     elif backbone_name == 'vgg16':
         backbone, backbone_out_channels = get_vgg_backbone(pretrained)
-    elif backbone_name == 'vit':
-        backbone, backbone_out_channels = get_vit_backbone(pretrained)
     elif backbone_name == 'simclr':
         backbone, backbone_out_channels = get_simclr_backbone(pretrained)
     else:
@@ -54,45 +54,6 @@ def get_vgg_backbone(pretrained):
     )
 
     backbone_out_channels = 256
-    return backbone, backbone_out_channels
-
-def get_vit_backbone(pretrained):
-    import torch.nn.functional as F
-    from torchvision.models import vit_b_16, ViT_B_16_Weights
-
-    class ViTBackbone(torch.nn.Module):
-        def __init__(self, vit_model):
-            super(ViTBackbone, self).__init__()
-            self.conv_proj = vit_model.conv_proj
-            self.encoder = vit_model.encoder
-
-        def forward(self, x):
-            x = self.conv_proj(x)  # Shape: [batch_size, hidden_dim, grid_size, grid_size]
-            batch_size, hidden_dim, h, w = x.shape
-            x = x.flatten(2).permute(2, 0, 1)  # Shape: [num_patches, batch_size, hidden_dim]
-            x = self.encoder(x)  # Transformer encoder
-            x = x.permute(1, 2, 0).reshape(batch_size, hidden_dim, h, w)  # Reshape back to feature map
-            return {'0': x}
-
-    if pretrained:
-        weights = ViT_B_16_Weights.DEFAULT
-    else:
-        weights = None
-    vit_model = vit_b_16(weights=weights)
-    backbone = ViTBackbone(vit_model)
-    backbone_out_channels = vit_model.hidden_dim
-
-    # Since ViT doesn't have multiple feature maps, we can wrap it in BackboneWithFPN with dummy layers
-    return_layers = {'0': '0'}
-    backbone = BackboneWithFPN(
-        backbone,
-        return_layers=return_layers,
-        in_channels_list=[backbone_out_channels],
-        out_channels=256,
-        extra_blocks=None,
-    )
-    backbone_out_channels = 256
-
     return backbone, backbone_out_channels
 
 def get_simclr_backbone(pretrained):

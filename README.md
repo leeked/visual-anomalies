@@ -27,11 +27,10 @@ project/
 │ │ ├── 0002.txt 
 │ │ └── ... 
 ├── models/ 
-│ ├── init.py 
+│ ├── __init__.py 
 │ ├── backbones.py 
 │ └── custom_model.py 
 ├── utils/ 
-│ ├── init.py 
 │ ├── dataset.py 
 │ ├── transforms.py 
 │ └── metrics.py 

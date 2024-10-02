@@ -9,7 +9,7 @@ import torch.nn as nn
 import os
 import yaml
 import argparse
-from models.init import get_model
+from models import get_model
 from utils.dataset import ObjectDetectionDataset
 from utils.transforms import get_transform
 
@@ -25,6 +25,9 @@ def main(config):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    backbone_name = config['model']['backbone']
+    input_size = config['data']['input_size']
+
     # Prepare data
     split_ratios = (
         config['data']['train_split'],
@@ -36,14 +39,14 @@ def main(config):
         'train': ObjectDetectionDataset(
             data_dir=config['data']['data_dir'],
             split='train',
-            transforms=get_transform(train=True),
+            transforms=get_transform(train=True, input_size=input_size),
             split_ratios=split_ratios,
             seed=seed
         ),
         'val': ObjectDetectionDataset(
             data_dir=config['data']['data_dir'],
             split='val',
-            transforms=get_transform(train=False),
+            transforms=get_transform(train=False, input_size=input_size),
             split_ratios=split_ratios,
             seed=seed
         )

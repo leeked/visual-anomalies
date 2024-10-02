@@ -21,7 +21,6 @@ def get_model(config, num_classes):
             else:
                 weights = None
 
-            # Create the model with weights
             model = getattr(torchvision.models.detection, detection_model_name)(weights=weights)
             # Modify the model's head to have the correct number of classes
             in_features = model.roi_heads.box_predictor.cls_score.in_features
@@ -58,5 +57,8 @@ def get_model(config, num_classes):
                 # Get the backbone model
                 backbone, backbone_out_channels = get_backbone(backbone_name, pretrained)
 
-            model = torchvision.models.detection.FasterRCNN(backbone=backbone, num_classes=num_classes)
+            model = torchvision.models.detection.FasterRCNN(
+                backbone=backbone,
+                num_classes=num_classes
+            )
     return model
