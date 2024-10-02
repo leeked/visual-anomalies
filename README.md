@@ -9,6 +9,7 @@ This project provides boilerplate code for training PyTorch vision-based object 
 - Training, evaluation, and visualization scripts included.
 - Computes metrics like Intersection over Union (IoU), accuracy, precision, and recall.
 - Easy to extend and customize.
+- **Supports mixed precision training for memory efficiency.**
 
 ## Directory Structure
 
@@ -77,6 +78,7 @@ class_num x_corner y_corner width height
 ### Configure Training
 
 - Modify the `configs/default.yaml` file to set your desired training parameters and model configurations.
+- To enable mixed precision training, set `use_amp: true` under the `training` section.
 
 ### Train the Model
 
@@ -89,6 +91,12 @@ class_num x_corner y_corner width height
 ### Visualize Model Predictions
 
 ```python visualize.py --config configs/default.yaml```
+
+## Notes on Memory Optimization
+
+- **Mixed Precision Training**: Enabled by setting `use_amp: true` in the configuration file. This can significantly reduce memory usage and speed up training.
+- **Batch Size**: If you encounter memory issues, consider reducing the `batch_size` in the configuration file.
+- **Model Complexity**: Using smaller backbones (e.g., `resnet18` instead of `resnet50`) can also help reduce memory usage.
 
 ## Custom Backbones
 

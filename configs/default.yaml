@@ -9,7 +9,7 @@ model:
 
 training:
   epochs: 10
-  batch_size: 32
+  batch_size: 16  # Reduced batch size to save memory
   learning_rate: 0.001
   optimizer: adam  # Options: 'adam', 'sgd', 'adamw'
   scheduler:
@@ -19,6 +19,7 @@ training:
     T_max: 10  # For CosineAnnealingLR
     eta_min: 0  # For CosineAnnealingLR
   seed: 42  # For reproducibility
+  use_amp: true  # Enable mixed precision training
 
 data:
   data_dir: data/  # Root directory of the data, containing 'images/' and 'labels/' subdirectories
