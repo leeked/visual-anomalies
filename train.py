@@ -5,7 +5,6 @@ import random
 from torch.utils.data import DataLoader
 from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
-import torch.nn as nn
 import os
 import yaml
 import argparse
@@ -25,7 +24,6 @@ def main(config):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    backbone_name = config['model']['backbone']
     input_size = config['data']['input_size']
 
     # Prepare data
@@ -120,14 +118,13 @@ def main(config):
         print(f'Epoch {epoch + 1}/{num_epochs}')
         print('-' * 10)
         for phase in ['train', 'val']:
-            # Keep the model in training mode during validation to get losses
-            model.train()
-            running_loss = 0.0
             if phase == 'train':
-                pass  # Model is already in training mode
+                model.train()
             else:
-                # Ensure gradients are not computed during validation
+                model.train()  # Keep model in train mode to get losses
                 torch.set_grad_enabled(False)
+
+            running_loss = 0.0
 
             for images, targets in dataloaders[phase]:
                 images = list(img.to(device) for img in images)
@@ -156,8 +153,7 @@ def main(config):
                 running_loss += losses.item() * len(images)
 
             if phase == 'val':
-                # Re-enable gradient computation after validation
-                torch.set_grad_enabled(True)
+                torch.set_grad_enabled(True)  # Re-enable gradient computation
 
             epoch_loss = running_loss / len(datasets[phase])
             print(f'{phase} Loss: {epoch_loss:.4f}')

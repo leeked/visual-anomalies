@@ -23,9 +23,7 @@ def main(config):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    backbone_name = config['model']['backbone']
     input_size = config['data']['input_size']
-
 
     # Prepare data
     split_ratios = (

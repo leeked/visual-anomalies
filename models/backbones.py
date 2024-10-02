@@ -47,7 +47,6 @@ def get_vgg_backbone(pretrained):
     # Create the FPN
     backbone = BackboneWithFPN(
         backbone,
-        return_layers=return_layers,
         in_channels_list=in_channels_list,
         out_channels=256,
         extra_blocks=None,
@@ -73,7 +72,6 @@ def get_simclr_backbone(pretrained):
     in_channels_list = [256, 512, 1024, 2048]
     backbone = BackboneWithFPN(
         backbone,
-        return_layers=return_layers,
         in_channels_list=in_channels_list,
         out_channels=256,
         extra_blocks=None,
