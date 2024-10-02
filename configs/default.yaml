@@ -3,13 +3,13 @@ model:
   pretrained: true
   num_classes: null  # Will be set based on dataset
   custom_model_file: null  # Path to a custom model file, if any
-  backbone: resnet50  # Options: 'resnet50', 'vgg16', 'vit', 'simclr'
+  backbone: resnet50  # Options: 'resnet50', 'vgg16', 'simclr'
   custom_backbone_file: null  # Path to a custom backbone file, if any
   detection_model: null  # Options: 'fasterrcnn_resnet50_fpn', etc.
 
 training:
   epochs: 10
-  batch_size: 16  # Reduced batch size to save memory
+  batch_size: 16  # Adjusted batch size
   learning_rate: 0.001
   optimizer: adam  # Options: 'adam', 'sgd', 'adamw'
   scheduler:
@@ -23,7 +23,6 @@ training:
 
 data:
   data_dir: data/  # Root directory of the data, containing 'images/' and 'labels/' subdirectories
-  input_size: 224
   num_workers: 4
   augmentations:
     horizontal_flip: true

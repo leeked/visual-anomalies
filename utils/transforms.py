@@ -1,9 +1,7 @@
 import torchvision.transforms as T
 
-def get_transform(train, input_size=None):
+def get_transform(train):
     transforms = []
-    if input_size:
-        transforms.append(T.Resize((input_size, input_size)))
     transforms.append(T.ToTensor())
     if train:
         transforms.append(T.RandomHorizontalFlip(0.5))

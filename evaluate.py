@@ -23,8 +23,6 @@ def main(config):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    input_size = config['data']['input_size']
-
     # Prepare data
     split_ratios = (
         config['data']['train_split'],
@@ -35,7 +33,7 @@ def main(config):
     dataset = ObjectDetectionDataset(
         data_dir=config['data']['data_dir'],
         split='test',
-        transforms=get_transform(train=False, input_size=input_size),
+        transforms=get_transform(train=False),
         split_ratios=split_ratios,
         seed=seed
     )
@@ -47,7 +45,7 @@ def main(config):
     model = model.to(device)
     checkpoint_path = os.path.join(config['logging']['checkpoint_dir'], 'best_model.pth')
     if os.path.exists(checkpoint_path):
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
     else:
         print(f"Checkpoint not found at {checkpoint_path}")
         return

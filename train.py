@@ -24,8 +24,6 @@ def main(config):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    input_size = config['data']['input_size']
-
     # Prepare data
     split_ratios = (
         config['data']['train_split'],
@@ -37,14 +35,14 @@ def main(config):
         'train': ObjectDetectionDataset(
             data_dir=config['data']['data_dir'],
             split='train',
-            transforms=get_transform(train=True, input_size=input_size),
+            transforms=get_transform(train=True),
             split_ratios=split_ratios,
             seed=seed
         ),
         'val': ObjectDetectionDataset(
             data_dir=config['data']['data_dir'],
             split='val',
-            transforms=get_transform(train=False, input_size=input_size),
+            transforms=get_transform(train=False),
             split_ratios=split_ratios,
             seed=seed
         )
