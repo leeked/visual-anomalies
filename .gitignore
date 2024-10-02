@@ -1,4 +1,5 @@
 configs/test.yaml
+configs/debug.yaml
 __pycache__/
 checkpoints/
 logs/

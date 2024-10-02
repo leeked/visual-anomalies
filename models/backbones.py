@@ -45,9 +45,16 @@ def get_vgg_backbone(pretrained):
     in_channels_list = [64, 128, 256, 512]
 
     # Create the FPN
-    backbone = BackboneWithFPN(backbone, in_channels_list=in_channels_list, out_channels=256)
+    backbone = BackboneWithFPN(
+        backbone,
+        return_layers=return_layers,
+        in_channels_list=in_channels_list,
+        out_channels=256,
+        extra_blocks=None,
+    )
 
-    return backbone, 256
+    backbone_out_channels = 256
+    return backbone, backbone_out_channels
 
 def get_vit_backbone(pretrained):
     import torch.nn.functional as F
@@ -77,7 +84,13 @@ def get_vit_backbone(pretrained):
 
     # Since ViT doesn't have multiple feature maps, we can wrap it in BackboneWithFPN with dummy layers
     return_layers = {'0': '0'}
-    backbone = BackboneWithFPN(backbone, return_layers=return_layers, in_channels_list=[backbone_out_channels], out_channels=256)
+    backbone = BackboneWithFPN(
+        backbone,
+        return_layers=return_layers,
+        in_channels_list=[backbone_out_channels],
+        out_channels=256,
+        extra_blocks=None,
+    )
     backbone_out_channels = 256
 
     return backbone, backbone_out_channels
@@ -97,6 +110,12 @@ def get_simclr_backbone(pretrained):
     return_layers = {'layer1': '0', 'layer2': '1', 'layer3': '2', 'layer4': '3'}
     backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
     in_channels_list = [256, 512, 1024, 2048]
-    backbone = BackboneWithFPN(backbone, in_channels_list=in_channels_list, out_channels=256)
+    backbone = BackboneWithFPN(
+        backbone,
+        return_layers=return_layers,
+        in_channels_list=in_channels_list,
+        out_channels=256,
+        extra_blocks=None,
+    )
     backbone_out_channels = 256
     return backbone, backbone_out_channels
