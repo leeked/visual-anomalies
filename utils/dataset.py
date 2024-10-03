@@ -3,6 +3,8 @@ import random
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
+import numpy as np
+import torchvision.transforms.functional as F  # Added import
 
 class ObjectDetectionDataset(Dataset):
     def __init__(self, data_dir, split='train', transforms=None, split_ratios=(0.7, 0.15, 0.15), seed=42):
@@ -89,10 +91,8 @@ class ObjectDetectionDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.samples[idx]
         image = Image.open(sample['image_path']).convert("RGB")
-        width, height = image.size
 
         # Prepare target
-        targets = {}
         boxes = []
         labels = []
 
@@ -104,19 +104,28 @@ class ObjectDetectionDataset(Dataset):
             labels.append(label)
 
         if boxes:
-            boxes = torch.tensor(boxes, dtype=torch.float32)
-            labels = torch.tensor(labels, dtype=torch.int64)
+            boxes = np.array(boxes)
+            labels = np.array(labels)
         else:
-            boxes = torch.empty((0, 4), dtype=torch.float32)
-            labels = torch.empty((0,), dtype=torch.int64)
+            boxes = np.empty((0, 4), dtype=np.float32)
+            labels = np.empty((0,), dtype=np.int64)
 
-        targets['boxes'] = boxes
-        targets['labels'] = labels
+        target = {}
+        target['boxes'] = boxes
+        target['labels'] = labels
 
+        # Apply transforms
         if self.transforms:
-            image = self.transforms(image)
+            transformed = self.transforms(image=np.array(image), bboxes=target['boxes'], labels=target['labels'])
+            image = transformed['image']
+            target['boxes'] = torch.tensor(transformed['bboxes'], dtype=torch.float32)
+            target['labels'] = torch.tensor(transformed['labels'], dtype=torch.int64)
+        else:
+            image = F.to_tensor(image)
+            target['boxes'] = torch.tensor(target['boxes'], dtype=torch.float32)
+            target['labels'] = torch.tensor(target['labels'], dtype=torch.int64)
 
-        return image, targets
+        return image, target
 
     def get_class_names(self):
         return [str(self.index_to_class_num[i]) for i in range(len(self.index_to_class_num))]

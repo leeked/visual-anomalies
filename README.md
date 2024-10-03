@@ -1,6 +1,6 @@
-# PyTorch Object Detection Training Boilerplate
+# PyTorch Visual Anomaly Object Detection Project
 
-This project provides boilerplate code for training PyTorch vision-based object detection models with bounding box classification.
+This project provides code for training PyTorch vision-based object detection models with bounding box classification.
 
 ## Features
 
@@ -10,6 +10,7 @@ This project provides boilerplate code for training PyTorch vision-based object 
 - Computes metrics like Intersection over Union (IoU), accuracy, precision, and recall.
 - Easy to extend and customize.
 - **Supports mixed precision training for memory efficiency.**
+- Advanced data preprocessing and augmentation using Albumentations.
 
 ## Directory Structure
 
@@ -78,6 +79,28 @@ class_num x_corner y_corner width height
 
 - Modify the `configs/default.yaml` file to set your desired training parameters and model configurations.
 - To enable mixed precision training, set `use_amp: true` under the `training` section.
+- Configure data augmentations under the `data.augmentations` section in the YAML file.
+
+### Data Augmentation and Preprocessing
+The code uses Albumentations for advanced data augmentation techniques. You can configure the augmentations in the `configs/default.yaml` file under the `data.augmentations` section.
+
+Example augmentation configurations:
+```yaml
+augmentations:
+  horizontal_flip: true
+  horizontal_flip_prob: 0.5
+  vertical_flip: true
+  vertical_flip_prob: 0.5
+  rotation: true
+  rotation_degrees: 15
+  rotation_prob: 0.5
+  color_jitter: true
+  brightness: 0.2
+  contrast: 0.2
+  saturation: 0.2
+  hue: 0.1
+  color_jitter_prob: 0.5
+```
 
 ### Train the Model
 

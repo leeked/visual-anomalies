@@ -33,7 +33,7 @@ def main(config):
     dataset = ObjectDetectionDataset(
         data_dir=config['data']['data_dir'],
         split='test',
-        transforms=get_transform(train=False),
+        transforms=get_transform(train=False, config=config),
         split_ratios=split_ratios,
         seed=seed
     )
@@ -45,7 +45,7 @@ def main(config):
     model = model.to(device)
     checkpoint_path = os.path.join(config['logging']['checkpoint_dir'], 'best_model.pth')
     if os.path.exists(checkpoint_path):
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     else:
         print(f"Checkpoint not found at {checkpoint_path}")
         return

@@ -35,14 +35,14 @@ def main(config):
         'train': ObjectDetectionDataset(
             data_dir=config['data']['data_dir'],
             split='train',
-            transforms=get_transform(train=True),
+            transforms=get_transform(train=True, config=config),
             split_ratios=split_ratios,
             seed=seed
         ),
         'val': ObjectDetectionDataset(
             data_dir=config['data']['data_dir'],
             split='val',
-            transforms=get_transform(train=False),
+            transforms=get_transform(train=False, config=config),
             split_ratios=split_ratios,
             seed=seed
         )
@@ -118,8 +118,9 @@ def main(config):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
+                torch.set_grad_enabled(True)
             else:
-                model.train()  # Keep model in train mode to get losses
+                model.train()
                 torch.set_grad_enabled(False)
 
             running_loss = 0.0
@@ -150,8 +151,7 @@ def main(config):
 
                 running_loss += losses.item() * len(images)
 
-            if phase == 'val':
-                torch.set_grad_enabled(True)  # Re-enable gradient computation
+            torch.set_grad_enabled(True)  # Re-enable gradient computation
 
             epoch_loss = running_loss / len(datasets[phase])
             print(f'{phase} Loss: {epoch_loss:.4f}')
@@ -160,10 +160,7 @@ def main(config):
                 best_loss = epoch_loss
                 best_model_wts = model.state_dict()
 
-        if scheduler_name == 'step_lr':
-            scheduler.step()
-        elif scheduler_name == 'cosine_annealing':
-            scheduler.step()
+        scheduler.step()
 
     model.load_state_dict(best_model_wts)
     if not os.path.exists(config['logging']['checkpoint_dir']):

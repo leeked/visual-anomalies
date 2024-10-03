@@ -31,28 +31,38 @@ def main(config):
         config['data']['test_split']
     )
 
-    dataset = ObjectDetectionDataset(
+    # Dataset with transforms
+    dataset_transformed = ObjectDetectionDataset(
         data_dir=config['data']['data_dir'],
         split='test',
-        transforms=get_transform(train=False),
+        transforms=get_transform(train=False, config=config),
         split_ratios=split_ratios,
         seed=seed
     )
 
-    num_classes = len(dataset.get_class_names())
+    # Dataset without transforms
+    dataset_original = ObjectDetectionDataset(
+        data_dir=config['data']['data_dir'],
+        split='test',
+        transforms=None,
+        split_ratios=split_ratios,
+        seed=seed
+    )
+
+    num_classes = len(dataset_transformed.get_class_names())
     config['model']['num_classes'] = num_classes
 
     model = get_model(config, num_classes)
     model = model.to(device)
     checkpoint_path = os.path.join(config['logging']['checkpoint_dir'], 'best_model.pth')
     if os.path.exists(checkpoint_path):
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     else:
         print(f"Checkpoint not found at {checkpoint_path}")
         return
 
     dataloader = DataLoader(
-        dataset,
+        dataset_transformed,
         batch_size=1,
         shuffle=False,
         num_workers=config['data']['num_workers'],
@@ -61,7 +71,7 @@ def main(config):
 
     model.eval()
 
-    class_names = dataset.get_class_names()
+    class_names = dataset_transformed.get_class_names()
 
     # Create directory to save visuals
     save_dir = os.path.join(config['logging']['log_dir'], 'visualizations')
@@ -74,15 +84,18 @@ def main(config):
                 break
             image = images[0].to(device)
             target = targets[0]
-            img = images[0].cpu().permute(1, 2, 0).numpy()
+
+            # Get original image and target
+            original_image, original_target = dataset_original[idx]
+            img = original_image.permute(1, 2, 0).numpy()
             img = np.clip(img, 0, 1)
 
             fig, ax = plt.subplots(1)
             ax.imshow(img)
 
             # Draw ground truth bboxes
-            true_boxes = target['boxes'].cpu().numpy()
-            true_labels = target['labels'].cpu().numpy()
+            true_boxes = original_target['boxes'].numpy()
+            true_labels = original_target['labels'].numpy()
             for i in range(len(true_boxes)):
                 bbox = true_boxes[i]
                 xmin, ymin, xmax, ymax = bbox

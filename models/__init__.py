@@ -10,18 +10,19 @@ def get_model(config, num_classes):
         pretrained = config['model']['pretrained']
 
         if hasattr(torchvision.models.detection, detection_model_name):
-            # Get the appropriate weights enum
+            model_constructor = getattr(torchvision.models.detection, detection_model_name)
+
             if pretrained:
-                weights_enum_name = detection_model_name.upper() + '_Weights'
-                if hasattr(torchvision.models.detection, weights_enum_name):
-                    weights_class = getattr(torchvision.models.detection, weights_enum_name)
+                weights_attr_name = model_constructor.__name__ + '_Weights'
+                if hasattr(torchvision.models.detection, weights_attr_name):
+                    weights_class = getattr(torchvision.models.detection, weights_attr_name)
                     weights = weights_class.DEFAULT
                 else:
                     weights = None
             else:
                 weights = None
 
-            model = getattr(torchvision.models.detection, detection_model_name)(weights=weights)
+            model = model_constructor(weights=weights)
             # Modify the model's head to have the correct number of classes
             in_features = model.roi_heads.box_predictor.cls_score.in_features
             if detection_model_name.startswith('fasterrcnn'):
