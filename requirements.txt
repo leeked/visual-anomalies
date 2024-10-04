@@ -7,3 +7,5 @@ pyyaml
 matplotlib
 albumentations
 opencv-python
+torchmetrics
+pycocotools

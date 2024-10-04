@@ -9,7 +9,8 @@ import argparse
 from models import get_model
 from utils.dataset import ObjectDetectionDataset
 from utils.transforms import get_transform
-import utils.metrics as metrics
+from utils.metrics import compute_iou, match_predictions_to_ground_truth, compute_precision_recall_f1, compute_mean_iou
+from utils.metrics import get_map_metric
 
 def main(config):
     # Set seeds for reproducibility
@@ -62,7 +63,16 @@ def main(config):
 
     class_names = dataset.get_class_names()
 
-    all_metrics = {'accuracy': [], 'precision': [], 'recall': [], 'mean_iou': []}
+    iou_thresholds = config['metrics'].get('iou_thresholds', [0.5])
+    matching_iou_threshold = config['metrics'].get('matching_iou_threshold', 0.5)
+
+    # Enable per-class metrics
+    metric = get_map_metric(iou_thresholds=iou_thresholds, class_metrics=True)
+
+    total_tp = 0
+    total_fp = 0
+    total_fn = 0
+    total_iou_list = []
 
     with torch.no_grad():
         for images, targets in dataloader:
@@ -71,32 +81,60 @@ def main(config):
             # Since batch_size=1
             output = outputs[0]
             target = targets[0]
-            # Get predicted boxes and labels
+
+            # Prepare predictions and targets in the format expected by torchmetrics
             pred_boxes = output['boxes'].cpu()
+            pred_scores = output['scores'].cpu()
             pred_labels = output['labels'].cpu()
-            # Get ground truth boxes and labels
+
             gt_boxes = target['boxes']
             gt_labels = target['labels']
 
-            # Handle cases where there are no ground truth or predicted boxes
-            if len(gt_boxes) == 0 and len(pred_boxes) == 0:
-                # No ground truth and no predictions
-                batch_metrics = {'accuracy': 1.0, 'precision': 1.0, 'recall': 1.0, 'mean_iou': 1.0}
-            else:
-                batch_metrics = metrics.compute_metrics(
-                    pred_boxes=pred_boxes,
-                    pred_labels=pred_labels,
-                    gt_boxes=gt_boxes,
-                    gt_labels=gt_labels,
-                    iou_threshold=config['metrics']['iou_threshold']
-                )
-            for k in all_metrics.keys():
-                all_metrics[k].append(batch_metrics[k])
+            preds = [{
+                'boxes': pred_boxes,
+                'scores': pred_scores,
+                'labels': pred_labels
+            }]
 
-    avg_metrics = {k: sum(v) / len(v) for k, v in all_metrics.items()}
-    print('Evaluation Results:')
-    for k, v in avg_metrics.items():
-        print(f'{k}: {v:.4f}')
+            target_formatted = [{
+                'boxes': gt_boxes,
+                'labels': gt_labels
+            }]
+
+            metric.update(preds, target_formatted)
+
+            # Compute TP, FP, FN, IoU for custom metrics
+            tp, fp, fn, iou_list = match_predictions_to_ground_truth(
+                pred_boxes, pred_labels, pred_scores, gt_boxes, gt_labels, iou_threshold=matching_iou_threshold
+            )
+            total_tp += tp
+            total_fp += fp
+            total_fn += fn
+            total_iou_list.extend(iou_list)
+
+        final_metrics = metric.compute()
+        print('Evaluation Results:')
+        # Print mAP metrics
+        for k, v in final_metrics.items():
+            if isinstance(v, torch.Tensor):
+                if v.numel() == 1:
+                    v = v.item()
+                    print(f'{k}: {v:.4f}')
+                else:
+                    v_list = v.tolist()
+                    v_str = ', '.join(f'{val:.4f}' for val in v_list)
+                    print(f'{k}: [{v_str}]')
+            else:
+                print(f'{k}: {v}')
+
+        # Compute overall Precision, Recall, F1 Score, and Mean IoU
+        precision, recall, f1_score = compute_precision_recall_f1(total_tp, total_fp, total_fn)
+        mean_iou = compute_mean_iou(total_iou_list)
+
+        print(f'Precision: {precision:.4f}')
+        print(f'Recall: {recall:.4f}')
+        print(f'F1 Score: {f1_score:.4f}')
+        print(f'Mean IoU: {mean_iou:.4f}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate a bounding box classification model.')

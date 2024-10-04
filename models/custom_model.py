@@ -23,4 +23,3 @@ class CustomModel(nn.Module):
         class_out = self.classifier(x)
         bbox_out = self.regressor(x)
         return class_out, bbox_out
-

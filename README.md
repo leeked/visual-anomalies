@@ -7,7 +7,10 @@ This project provides code for training PyTorch vision-based object detection mo
 - Configurable via YAML configuration files.
 - Supports custom models and custom backbones.
 - Training, evaluation, and visualization scripts included.
-- Computes metrics like Intersection over Union (IoU), accuracy, precision, and recall.
+- Computes industry-standard object detection metrics:
+  - Mean Average Precision (mAP) at different IoU thresholds (e.g., mAP@0.5, mAP@0.75, mAP@0.95).
+  - Precision, Recall, F1 Score, and Mean IoU.
+  - Per-class metrics for detailed analysis.
 - Easy to extend and customize.
 - **Supports mixed precision training for memory efficiency.**
 - Advanced data preprocessing and augmentation using Albumentations.
@@ -70,6 +73,16 @@ class_num x_corner y_corner width height
 
 ```pip install -r requirements.txt```
 
+Some dependencies like `pycocotools` may require a C compiler to install. On Linux, you can install it via:
+
+`pip install pycocotools`
+
+On Windows:
+
+`pip install pycocotools-windows`
+
+Alternatively, you can install it from source.
+
 ### Prepare Data
 
 - Place your images in the `data/images/` directory.
@@ -107,6 +120,23 @@ augmentations:
 ```python train.py --config configs/default.yaml```
 
 ### Evaluate the Model
+
+The evaluation script computes industry-standard object detection metrics including Mean Average Precision (mAP), Precision, Recall, F1 Score, and Mean IoU at different IoU thresholds.
+
+You can configure the IoU thresholds in the `configs/default.yaml` file under the `metrics` section.
+
+```yaml
+metrics:
+  iou_thresholds: [0.5, 0.75, 0.95]
+  matching_iou_threshold: 0.5
+```
+
+- **Per-Class Metrics**: The evaluation script now computes and displays per-class metrics. These metrics provide detailed insights into the model's performance on each class.
+
+- `iou_thresholds`: List of IoU thresholds used for mAP calculation.
+- `matching_iou_threshold`: IoU threshold used to match predicted boxes to ground truth boxes for computing Precision, Recall, F1 Score, and Mean IoU.
+
+Run the evaluation script:
 
 ```python evaluate.py --config configs/default.yaml```
 
