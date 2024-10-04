@@ -4,8 +4,8 @@ from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 def get_map_metric(iou_thresholds=None, class_metrics=False):
     # iou_thresholds can be a list or a single float
-    if iou_thresholds is None:
-        iou_thresholds = [0.5]
+    # if iou_thresholds is None:
+    #     iou_thresholds = [0.5]
     return MeanAveragePrecision(iou_thresholds=iou_thresholds, class_metrics=class_metrics)
 
 def compute_iou(box1, box2):

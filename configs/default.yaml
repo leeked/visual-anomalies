@@ -49,7 +49,7 @@ data:
   test_split: 0.15
 
 metrics:
-  iou_thresholds: [0.5, 0.75, 0.95]  # Include mAP@0.5 and mAP@0.95
+  iou_thresholds: null  # Include mAP@0.5 and mAP@0.95; null for [0.5:0.95:0.05]
   matching_iou_threshold: 0.5  # IoU threshold for matching predictions to ground truth
   include_metrics: ['iou', 'precision', 'recall', 'f1_score']  # Metrics to compute
 

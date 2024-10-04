@@ -63,7 +63,7 @@ def main(config):
 
     class_names = dataset.get_class_names()
 
-    iou_thresholds = config['metrics'].get('iou_thresholds', [0.5])
+    iou_thresholds = config['metrics'].get('iou_thresholds', None)
     matching_iou_threshold = config['metrics'].get('matching_iou_threshold', 0.5)
 
     # Enable per-class metrics
