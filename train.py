@@ -11,6 +11,7 @@ import argparse
 from models import get_model
 from utils.dataset import ObjectDetectionDataset
 from utils.transforms import get_transform
+from utils.sampler import BalancedSampler  # Import BalancedSampler
 
 def main(config):
     # Set seeds for reproducibility
@@ -54,11 +55,25 @@ def main(config):
     model = get_model(config, num_classes)
     model = model.to(device)
 
+    # Determine if we need to use BalancedSampler
+    imbalance_method = config['training'].get('class_imbalance_handling', {}).get('method', 'none')
+    if imbalance_method == 'balanced_sampler':
+        train_sampler = BalancedSampler(
+            datasets['train'],
+            num_samples=len(datasets['train']),
+            replacement=True
+        )
+        shuffle = False
+    else:
+        train_sampler = None
+        shuffle = True
+
     dataloaders = {
         'train': DataLoader(
             datasets['train'],
             batch_size=config['training']['batch_size'],
-            shuffle=True,
+            shuffle=shuffle,
+            sampler=train_sampler,
             num_workers=config['data']['num_workers'],
             collate_fn=lambda x: tuple(zip(*x))
         ),
@@ -108,7 +123,7 @@ def main(config):
     # Initialize the GradScaler for mixed precision
     use_amp = config['training'].get('use_amp', False)
     if use_amp:
-        scaler = torch.amp.GradScaler('cuda')
+        scaler = torch.amp.GradScaler()
     else:
         scaler = None
 
@@ -120,7 +135,7 @@ def main(config):
                 model.train()
                 torch.set_grad_enabled(True)
             else:
-                model.train()
+                model.train()  # Keep model in train mode to get losses
                 torch.set_grad_enabled(False)
 
             running_loss = 0.0
@@ -135,7 +150,7 @@ def main(config):
                     optimizer.zero_grad()
 
                 if use_amp:
-                    with torch.amp.autocast('cuda'):
+                    with torch.autocast(device_type=device.type):
                         loss_dict = model(images, targets)
                         losses = sum(loss for loss in loss_dict.values())
                     if phase == 'train':
