@@ -11,7 +11,7 @@ import argparse
 from models import get_model
 from utils.dataset import ObjectDetectionDataset
 from utils.transforms import get_transform
-from utils.sampler import BalancedSampler  # Import BalancedSampler
+from utils.sampler import BalancedSampler  # Ensure this is imported if using class imbalance handling
 
 def main(config):
     # Set seeds for reproducibility
@@ -86,17 +86,20 @@ def main(config):
         )
     }
 
+    weight_decay = config['training'].get('weight_decay', 0.0)
+
     optimizer = None
     if config['training']['optimizer'] == 'adam':
-        optimizer = Adam(model.parameters(), lr=config['training']['learning_rate'])
+        optimizer = Adam(model.parameters(), lr=config['training']['learning_rate'], weight_decay=weight_decay)
     elif config['training']['optimizer'] == 'sgd':
         optimizer = SGD(
             model.parameters(),
             lr=config['training']['learning_rate'],
-            momentum=0.9
+            momentum=0.9,
+            weight_decay=weight_decay
         )
     elif config['training']['optimizer'] == 'adamw':
-        optimizer = AdamW(model.parameters(), lr=config['training']['learning_rate'])
+        optimizer = AdamW(model.parameters(), lr=config['training']['learning_rate'], weight_decay=weight_decay)
     else:
         raise ValueError("Unsupported optimizer type")
 
@@ -119,6 +122,9 @@ def main(config):
 
     num_epochs = config['training']['epochs']
     best_loss = float('inf')
+    early_stopping_enabled = config['training'].get('early_stopping', {}).get('enabled', False)
+    early_stopping_patience = config['training'].get('early_stopping', {}).get('patience', 5)
+    epochs_no_improve = 0
 
     # Initialize the GradScaler for mixed precision
     use_amp = config['training'].get('use_amp', False)
@@ -166,14 +172,27 @@ def main(config):
 
                 running_loss += losses.item() * len(images)
 
-            torch.set_grad_enabled(True)  # Re-enable gradient computation
-
             epoch_loss = running_loss / len(datasets[phase])
             print(f'{phase} Loss: {epoch_loss:.4f}')
 
-            if phase == 'val' and epoch_loss < best_loss:
-                best_loss = epoch_loss
-                best_model_wts = model.state_dict()
+            if phase == 'val':
+                if epoch_loss < best_loss:
+                    best_loss = epoch_loss
+                    best_model_wts = model.state_dict()
+                    epochs_no_improve = 0
+                else:
+                    epochs_no_improve += 1
+
+                if early_stopping_enabled and epochs_no_improve >= early_stopping_patience:
+                    print('Early stopping triggered')
+                    model.load_state_dict(best_model_wts)
+                    if not os.path.exists(config['logging']['checkpoint_dir']):
+                        os.makedirs(config['logging']['checkpoint_dir'])
+                    torch.save(
+                        model.state_dict(),
+                        os.path.join(config['logging']['checkpoint_dir'], 'best_model.pth')
+                    )
+                    return  # Exit training loop
 
         scheduler.step()
 

@@ -12,8 +12,10 @@ This project provides code for training PyTorch vision-based object detection mo
   - Precision, Recall, F1 Score, and Mean IoU.
   - Per-class metrics for detailed analysis.
 - Easy to extend and customize.
-- **Supports mixed precision training for memory efficiency.**
+- Supports mixed precision training for memory efficiency.
 - Advanced data preprocessing and augmentation using Albumentations.
+- Handles class imbalance during training using balanced sampling.
+- **Implements overfitting mitigation techniques such as early stopping and weight decay.**
 
 ## Directory Structure
 
@@ -93,6 +95,46 @@ Alternatively, you can install it from source.
 - Modify the `configs/default.yaml` file to set your desired training parameters and model configurations.
 - To enable mixed precision training, set `use_amp: true` under the `training` section.
 - Configure data augmentations under the `data.augmentations` section in the YAML file.
+
+### Handling Overfitting
+The code includes techniques to mitigate overfitting during training:
+
+#### Early Stopping
+Stops training when the validation loss does not improve after a certain number of epochs.
+
+To enable early stopping, set the `early_stopping` parameters in the configuration file:
+
+```yaml
+training:
+  early_stopping:
+    enabled: true
+    patience: 5  # Number of epochs with no improvement after which training will be stopped
+```
+
+#### Weight Decay
+
+Adds L2 regularization to the optimizer to penalize large weights.
+
+To enable weight decay, set the weight_decay parameter in the configuration file:
+
+```yaml
+training:
+  weight_decay: 0.0001  # Adjust the value as needed
+```
+
+### Handling Class Imbalance
+
+The code supports handling class imbalance during training by using a balanced sampler. This technique adjusts the sampling weights so that classes with fewer samples are sampled more frequently, helping to mitigate the effects of class imbalance.
+
+To enable this feature, set the `class_imbalance_handling.method` option in the configuration file to `'balanced_sampler'`.
+
+Example
+
+```yaml
+training:
+  class_imbalance_handling:
+    method: 'balanced_sampler'  # Options: 'none', 'balanced_sampler'
+```
 
 ### Data Augmentation and Preprocessing
 The code uses Albumentations for advanced data augmentation techniques. You can configure the augmentations in the `configs/default.yaml` file under the `data.augmentations` section.
