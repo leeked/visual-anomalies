@@ -1,3 +1,4 @@
+import torch
 from utils.metrics import (
     compute_precision_recall_f1, compute_mean_iou,
     match_predictions_to_ground_truth, get_map_metric
