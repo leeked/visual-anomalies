@@ -56,7 +56,7 @@ def main(config):
         )
     }
 
-    num_classes = len(datasets['train'].get_class_names())
+    num_classes = datasets['train'].num_classes
     config['model']['num_classes'] = num_classes
 
     model = get_model(config, num_classes).to(device)

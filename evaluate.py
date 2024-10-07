@@ -42,7 +42,7 @@ def main(config):
         seed=seed
     )
 
-    num_classes = len(dataset.get_class_names())
+    num_classes = dataset.num_classes
     config['model']['num_classes'] = num_classes
 
     model = get_model(config, num_classes).to(device)

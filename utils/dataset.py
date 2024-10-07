@@ -36,6 +36,8 @@ class ObjectDetectionDataset(Dataset):
         ]
         image_files.sort()  # Ensure consistent order
 
+        class_nums = set()
+
         for image_file in image_files:
             image_id = os.path.splitext(image_file)[0]
             image_path = os.path.join(images_dir, image_file)
@@ -61,6 +63,7 @@ class ObjectDetectionDataset(Dataset):
                             'class_num': class_num,
                             'bbox': bbox_converted
                         })
+                        class_nums.add(class_num)
 
             sample = {
                 'image_path': image_path,
@@ -68,11 +71,7 @@ class ObjectDetectionDataset(Dataset):
             }
             all_samples.append(sample)
 
-        # Get the set of all class numbers
-        class_nums = set()
-        for sample in all_samples:
-            for obj in sample['objects']:
-                class_nums.add(obj['class_num'])
+        # Create mappings between class numbers and indices
         class_nums = sorted(list(class_nums))
         self.class_num_to_index = {
             class_num: idx for idx, class_num in enumerate(class_nums)
@@ -80,6 +79,7 @@ class ObjectDetectionDataset(Dataset):
         self.index_to_class_num = {
             idx: class_num for class_num, idx in self.class_num_to_index.items()
         }
+        self.num_classes = len(class_nums)
 
         # Split the data
         random.seed(seed)
@@ -112,7 +112,8 @@ class ObjectDetectionDataset(Dataset):
             class_num = obj['class_num']
             bbox = obj['bbox']  # [xmin, ymin, xmax, ymax]
             boxes.append(bbox)
-            labels.append(class_num)  # Store class numbers
+            # Map class numbers to indices
+            labels.append(self.class_num_to_index[class_num])
 
         if boxes:
             boxes = np.array(boxes)
@@ -134,20 +135,11 @@ class ObjectDetectionDataset(Dataset):
             target['boxes'] = torch.tensor(
                 transformed['bboxes'], dtype=torch.float32
             )
-            # Map class numbers to indices after transforms
-            transformed_labels = transformed['labels']
-            labels = [
-                self.class_num_to_index[class_num]
-                for class_num in transformed_labels
-            ]
-            target['labels'] = torch.tensor(labels, dtype=torch.int64)
+            target['labels'] = torch.tensor(
+                transformed['labels'], dtype=torch.int64
+            )
         else:
             image = F.to_tensor(image)
-            # Map class numbers to indices
-            labels = [
-                self.class_num_to_index[class_num]
-                for class_num in target['labels']
-            ]
             target['boxes'] = torch.tensor(
                 target['boxes'], dtype=torch.float32
             )
@@ -156,7 +148,8 @@ class ObjectDetectionDataset(Dataset):
         return image, target
 
     def get_class_names(self):
+        # Return class numbers in the order of indices
         return [
             str(self.index_to_class_num[i])
-            for i in range(len(self.index_to_class_num))
+            for i in range(self.num_classes)
         ]

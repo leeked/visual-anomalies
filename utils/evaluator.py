@@ -1,4 +1,3 @@
-import torch
 from utils.metrics import (
     compute_precision_recall_f1, compute_mean_iou,
     match_predictions_to_ground_truth, get_map_metric
@@ -24,6 +23,8 @@ class Evaluator:
             iou_thresholds=self.iou_thresholds, class_metrics=True
         )
 
+        self.index_to_class_num = dataset.index_to_class_num
+
     def evaluate(self):
         self.model.eval()
         total_tp = 0
@@ -45,6 +46,17 @@ class Evaluator:
                 gt_boxes = target['boxes']
                 gt_labels = target['labels']
 
+                # Map predicted labels back to original class numbers
+                pred_labels_orig = torch.tensor([
+                    self.index_to_class_num[int(label)]
+                    for label in pred_labels
+                ])
+
+                gt_labels_orig = torch.tensor([
+                    self.index_to_class_num[int(label)]
+                    for label in gt_labels
+                ])
+
                 preds = [{
                     'boxes': pred_boxes,
                     'scores': pred_scores,
@@ -61,7 +73,8 @@ class Evaluator:
                 tp, fp, fn, iou_list = match_predictions_to_ground_truth(
                     pred_boxes, pred_labels, pred_scores,
                     gt_boxes, gt_labels,
-                    iou_threshold=self.matching_iou_threshold
+                    iou_threshold=self.matching_iou_threshold,
+                    index_to_class_num=self.index_to_class_num
                 )
 
                 total_tp += tp

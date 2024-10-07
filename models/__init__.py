@@ -22,7 +22,7 @@ def get_model(config, num_classes):
             else:
                 weights = None
 
-            model = model_constructor(weights=weights)
+            model = model_constructor(weights=weights, num_classes=num_classes)
             # Modify the model's head to have the correct number of classes
             in_features = model.roi_heads.box_predictor.cls_score.in_features
             if detection_model_name.startswith('fasterrcnn'):

@@ -26,7 +26,9 @@ def compute_iou(box1, box2):
     iou = inter_area / (area1 + area2 - inter_area + 1e-6)
     return iou
 
-def match_predictions_to_ground_truth(pred_boxes, pred_labels, pred_scores, gt_boxes, gt_labels, iou_threshold=0.5):
+def match_predictions_to_ground_truth(pred_boxes, pred_labels, pred_scores,
+                                      gt_boxes, gt_labels, iou_threshold=0.5,
+                                      index_to_class_num=None):
     """
     Matches predicted boxes to ground truth boxes.
     Returns counts of TP, FP, FN, and a list of IoUs for matched pairs.
@@ -36,6 +38,11 @@ def match_predictions_to_ground_truth(pred_boxes, pred_labels, pred_scores, gt_b
     pred_scores = pred_scores.numpy()
     gt_boxes = gt_boxes.numpy()
     gt_labels = gt_labels.numpy()
+
+    if index_to_class_num is not None:
+        # Map indices back to original class numbers
+        pred_labels = np.array([index_to_class_num[int(label)] for label in pred_labels])
+        gt_labels = np.array([index_to_class_num[int(label)] for label in gt_labels])
 
     matched_gt = []
     tp = 0
