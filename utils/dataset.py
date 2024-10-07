@@ -4,7 +4,7 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 import numpy as np
-import torchvision.transforms.functional as F  # Added import
+import torchvision.transforms.functional as F  # Ensure this is imported
 
 class ObjectDetectionDataset(Dataset):
     def __init__(self, data_dir, split='train', transforms=None, split_ratios=(0.7, 0.15, 0.15), seed=42):
@@ -98,10 +98,9 @@ class ObjectDetectionDataset(Dataset):
 
         for obj in sample['objects']:
             class_num = obj['class_num']
-            label = self.class_num_to_index[class_num]
             bbox = obj['bbox']  # [xmin, ymin, xmax, ymax]
             boxes.append(bbox)
-            labels.append(label)
+            labels.append(class_num)  # Store class numbers
 
         if boxes:
             boxes = np.array(boxes)
@@ -119,11 +118,16 @@ class ObjectDetectionDataset(Dataset):
             transformed = self.transforms(image=np.array(image), bboxes=target['boxes'], labels=target['labels'])
             image = transformed['image']
             target['boxes'] = torch.tensor(transformed['bboxes'], dtype=torch.float32)
-            target['labels'] = torch.tensor(transformed['labels'], dtype=torch.int64)
+            # Map class numbers to indices after transforms
+            transformed_labels = transformed['labels']
+            labels = [self.class_num_to_index[class_num] for class_num in transformed_labels]
+            target['labels'] = torch.tensor(labels, dtype=torch.int64)
         else:
             image = F.to_tensor(image)
+            # Map class numbers to indices
+            labels = [self.class_num_to_index[class_num] for class_num in target['labels']]
             target['boxes'] = torch.tensor(target['boxes'], dtype=torch.float32)
-            target['labels'] = torch.tensor(target['labels'], dtype=torch.int64)
+            target['labels'] = torch.tensor(labels, dtype=torch.int64)
 
         return image, target
 

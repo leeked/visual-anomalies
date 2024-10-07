@@ -5,7 +5,7 @@ model:
   custom_model_file: null  # Path to a custom model file, if any
   backbone: resnet50  # Options: 'resnet50', 'vgg16', 'simclr'
   custom_backbone_file: null  # Path to a custom backbone file, if any
-  detection_model: null  # Options: 'fasterrcnn_resnet50_fpn', 'fasterrcnn_resnet50_fpn_v2', etc.
+  detection_model: null  # Options: 'fasterrcnn_resnet50_fpn', etc.
 
 training:
   epochs: 10
@@ -14,18 +14,20 @@ training:
   weight_decay: 0.0001  # Added weight decay for regularization
   optimizer: adam  # Options: 'adam', 'sgd', 'adamw'
   scheduler:
-    name: step_lr  # Options: 'step_lr', 'cosine_annealing'
-    step_size: 7
-    gamma: 0.1
-    T_max: 10  # For CosineAnnealingLR
-    eta_min: 0  # For CosineAnnealingLR
+    name: cosine_annealing_warm_restarts  # Options: 'step_lr', 'cosine_annealing', 'cosine_annealing_warm_restarts'
+    step_size: 7  # For StepLR
+    gamma: 0.1    # For StepLR
+    T_max: 10     # For CosineAnnealingLR
+    T_0: 10       # For CosineAnnealingWarmRestarts
+    T_mult: 1     # For CosineAnnealingWarmRestarts
+    eta_min: 0    # For CosineAnnealingLR and CosineAnnealingWarmRestarts
   seed: 42  # For reproducibility
   use_amp: true  # Enable mixed precision training
-  class_imbalance_handling:
-    method: 'balanced_sampler'  # Options: 'none', 'balanced_sampler'
   early_stopping:
     enabled: true
     patience: 5  # Number of epochs with no improvement after which training will be stopped
+  class_imbalance_handling:
+    method: 'balanced_sampler'  # Options: 'none', 'balanced_sampler'
 
 data:
   data_dir: data/  # Root directory of the data, containing 'images/' and 'labels/' subdirectories

@@ -1,5 +1,7 @@
 configs/test.yaml
 configs/debug.yaml
+configs/coco.yaml
+configs/cocov2.yaml
 __pycache__/
 checkpoints/
 logs/

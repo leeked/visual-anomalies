@@ -4,7 +4,7 @@ import numpy as np
 import random
 from torch.utils.data import DataLoader
 from torch.optim import Adam, SGD, AdamW
-from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR, CosineAnnealingWarmRestarts
 import os
 import yaml
 import argparse
@@ -117,6 +117,13 @@ def main(config):
             T_max=config['training']['scheduler']['T_max'],
             eta_min=config['training']['scheduler'].get('eta_min', 0)
         )
+    elif scheduler_name == 'cosine_annealing_warm_restarts':
+        scheduler = CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=config['training']['scheduler']['T_0'],
+            T_mult=config['training']['scheduler'].get('T_mult', 1),
+            eta_min=config['training']['scheduler'].get('eta_min', 0)
+        )
     else:
         raise ValueError("Unsupported scheduler type")
 
@@ -146,7 +153,7 @@ def main(config):
 
             running_loss = 0.0
 
-            for images, targets in dataloaders[phase]:
+            for batch_idx, (images, targets) in enumerate(dataloaders[phase]):
                 images = list(img.to(device) for img in images)
                 targets = [
                     {k: v.to(device) for k, v in t.items()} for t in targets
@@ -172,8 +179,17 @@ def main(config):
 
                 running_loss += losses.item() * len(images)
 
+                # Update scheduler per batch for CosineAnnealingWarmRestarts
+                if phase == 'train' and scheduler_name == 'cosine_annealing_warm_restarts':
+                    scheduler.step(epoch + batch_idx / len(dataloaders[phase]))
+
+            torch.set_grad_enabled(True)  # Re-enable gradient computation
+
             epoch_loss = running_loss / len(datasets[phase])
             print(f'{phase} Loss: {epoch_loss:.4f}')
+
+            if phase == 'train' and scheduler_name != 'cosine_annealing_warm_restarts':
+                scheduler.step()
 
             if phase == 'val':
                 if epoch_loss < best_loss:
@@ -193,8 +209,6 @@ def main(config):
                         os.path.join(config['logging']['checkpoint_dir'], 'best_model.pth')
                     )
                     return  # Exit training loop
-
-        scheduler.step()
 
     model.load_state_dict(best_model_wts)
     if not os.path.exists(config['logging']['checkpoint_dir']):
