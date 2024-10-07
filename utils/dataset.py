@@ -4,15 +4,19 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 import numpy as np
-import torchvision.transforms.functional as F  # Ensure this is imported
+import torchvision.transforms.functional as F
+
 
 class ObjectDetectionDataset(Dataset):
-    def __init__(self, data_dir, split='train', transforms=None, split_ratios=(0.7, 0.15, 0.15), seed=42):
+    def __init__(self, data_dir, split='train', transforms=None,
+                 split_ratios=(0.7, 0.15, 0.15), seed=42):
         """
         Args:
-            data_dir (string): Root directory of the dataset, which contains 'images/' and 'labels/' subdirectories.
+            data_dir (string): Root directory of the dataset, which contains
+                               'images/' and 'labels/' subdirectories.
             split (string): 'train', 'val', or 'test'.
-            transforms (callable, optional): Optional transform to be applied on a sample.
+            transforms (callable, optional): Optional transform to be applied
+                                             on a sample.
             split_ratios (tuple): Ratios for train, val, and test splits.
             seed (int): Random seed for reproducibility.
         """
@@ -26,7 +30,10 @@ class ObjectDetectionDataset(Dataset):
 
         # Gather all samples
         all_samples = []
-        image_files = [f for f in os.listdir(images_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        image_files = [
+            f for f in os.listdir(images_dir)
+            if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+        ]
         image_files.sort()  # Ensure consistent order
 
         for image_file in image_files:
@@ -43,20 +50,21 @@ class ObjectDetectionDataset(Dataset):
                             continue
                         parts = line.strip().split()
                         class_num = int(parts[0])
-                        bbox = list(map(float, parts[1:5]))  # xmin, ymin, width, height
-                        # Convert bbox from [xmin, ymin, width, height] to [xmin, ymin, xmax, ymax]
+                        bbox = list(map(float, parts[1:5]))
+                        # Convert bbox from [xmin, ymin, width, height]
+                        # to [xmin, ymin, xmax, ymax]
                         xmin, ymin, width, height = bbox
                         xmax = xmin + width
                         ymax = ymin + height
                         bbox_converted = [xmin, ymin, xmax, ymax]
-                        objects.append({'class_num': class_num, 'bbox': bbox_converted})
-            else:
-                # No label file, treat as image with no objects
-                pass
+                        objects.append({
+                            'class_num': class_num,
+                            'bbox': bbox_converted
+                        })
 
             sample = {
                 'image_path': image_path,
-                'objects': objects  # List of {'class_num': int, 'bbox': [xmin, ymin, xmax, ymax]}
+                'objects': objects
             }
             all_samples.append(sample)
 
@@ -66,8 +74,12 @@ class ObjectDetectionDataset(Dataset):
             for obj in sample['objects']:
                 class_nums.add(obj['class_num'])
         class_nums = sorted(list(class_nums))
-        self.class_num_to_index = {class_num: idx for idx, class_num in enumerate(class_nums)}
-        self.index_to_class_num = {idx: class_num for class_num, idx in self.class_num_to_index.items()}
+        self.class_num_to_index = {
+            class_num: idx for idx, class_num in enumerate(class_nums)
+        }
+        self.index_to_class_num = {
+            idx: class_num for class_num, idx in self.class_num_to_index.items()
+        }
 
         # Split the data
         random.seed(seed)
@@ -109,27 +121,42 @@ class ObjectDetectionDataset(Dataset):
             boxes = np.empty((0, 4), dtype=np.float32)
             labels = np.empty((0,), dtype=np.int64)
 
-        target = {}
-        target['boxes'] = boxes
-        target['labels'] = labels
+        target = {'boxes': boxes, 'labels': labels}
 
         # Apply transforms
         if self.transforms:
-            transformed = self.transforms(image=np.array(image), bboxes=target['boxes'], labels=target['labels'])
+            transformed = self.transforms(
+                image=np.array(image),
+                bboxes=target['boxes'],
+                labels=target['labels']
+            )
             image = transformed['image']
-            target['boxes'] = torch.tensor(transformed['bboxes'], dtype=torch.float32)
+            target['boxes'] = torch.tensor(
+                transformed['bboxes'], dtype=torch.float32
+            )
             # Map class numbers to indices after transforms
             transformed_labels = transformed['labels']
-            labels = [self.class_num_to_index[class_num] for class_num in transformed_labels]
+            labels = [
+                self.class_num_to_index[class_num]
+                for class_num in transformed_labels
+            ]
             target['labels'] = torch.tensor(labels, dtype=torch.int64)
         else:
             image = F.to_tensor(image)
             # Map class numbers to indices
-            labels = [self.class_num_to_index[class_num] for class_num in target['labels']]
-            target['boxes'] = torch.tensor(target['boxes'], dtype=torch.float32)
+            labels = [
+                self.class_num_to_index[class_num]
+                for class_num in target['labels']
+            ]
+            target['boxes'] = torch.tensor(
+                target['boxes'], dtype=torch.float32
+            )
             target['labels'] = torch.tensor(labels, dtype=torch.int64)
 
         return image, target
 
     def get_class_names(self):
-        return [str(self.index_to_class_num[i]) for i in range(len(self.index_to_class_num))]
+        return [
+            str(self.index_to_class_num[i])
+            for i in range(len(self.index_to_class_num))
+        ]

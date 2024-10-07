@@ -9,28 +9,28 @@ model:
 
 training:
   epochs: 10
-  batch_size: 16  # Adjusted batch size
+  batch_size: 16
   learning_rate: 0.001
-  weight_decay: 0.0001  # Added weight decay for regularization
+  weight_decay: 0.0001
   optimizer: adam  # Options: 'adam', 'sgd', 'adamw'
   scheduler:
-    name: cosine_annealing_warm_restarts  # Options: 'step_lr', 'cosine_annealing', 'cosine_annealing_warm_restarts'
-    step_size: 7  # For StepLR
-    gamma: 0.1    # For StepLR
-    T_max: 10     # For CosineAnnealingLR
-    T_0: 10       # For CosineAnnealingWarmRestarts
-    T_mult: 1     # For CosineAnnealingWarmRestarts
-    eta_min: 0    # For CosineAnnealingLR and CosineAnnealingWarmRestarts
-  seed: 42  # For reproducibility
-  use_amp: true  # Enable mixed precision training
+    name: cosine_annealing_warm_restarts  # 'step_lr', 'cosine_annealing', etc.
+    step_size: 7
+    gamma: 0.1
+    T_max: 10
+    T_0: 10
+    T_mult: 1
+    eta_min: 0
+  seed: 42
+  use_amp: true
   early_stopping:
     enabled: true
-    patience: 5  # Number of epochs with no improvement after which training will be stopped
+    patience: 5
   class_imbalance_handling:
-    method: 'balanced_sampler'  # Options: 'none', 'balanced_sampler'
+    method: 'balanced_sampler'  # 'none', 'balanced_sampler'
 
 data:
-  data_dir: data/  # Root directory of the data, containing 'images/' and 'labels/' subdirectories
+  data_dir: data/
   num_workers: 4
   augmentations:
     horizontal_flip: true
@@ -57,9 +57,9 @@ data:
   test_split: 0.15
 
 metrics:
-  iou_thresholds: null  # Include mAP@0.5 and mAP@0.95
-  matching_iou_threshold: 0.5  # IoU threshold for matching predictions to ground truth
-  include_metrics: ['iou', 'precision', 'recall', 'f1_score']  # Metrics to compute
+  iou_thresholds: [0.5, 0.75, 0.95]
+  matching_iou_threshold: 0.5
+  include_metrics: ['iou', 'precision', 'recall', 'f1_score']
 
 logging:
   log_dir: logs
