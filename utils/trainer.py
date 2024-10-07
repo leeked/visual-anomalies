@@ -1,6 +1,6 @@
 import os
 import torch
-
+import logging
 
 class Trainer:
     def __init__(self, model, device, optimizer, scheduler,
@@ -27,21 +27,24 @@ class Trainer:
 
         self.scheduler_name = config['training']['scheduler']['name']
         self.checkpoint_dir = config['logging']['checkpoint_dir']
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("Trainer initialized")
 
     def train(self):
         for epoch in range(self.num_epochs):
-            print(f'Epoch {epoch + 1}/{self.num_epochs}')
-            print('-' * 10)
+            self.logger.info(f'Epoch {epoch + 1}/{self.num_epochs}')
+            self.logger.info('-' * 10)
 
             for phase in ['train', 'val']:
                 self._run_epoch(phase, epoch)
 
             if (self.early_stopping_enabled and
                 self.epochs_no_improve >= self.early_stopping_patience):
-                print('Early stopping triggered')
+                self.logger.info('Early stopping triggered')
                 break
 
         self.save_checkpoint()
+        self.logger.info('Training complete')
 
     def _run_epoch(self, phase, epoch):
         if phase == 'train':
@@ -64,22 +67,30 @@ class Trainer:
             if phase == 'train':
                 self.optimizer.zero_grad()
 
-            if self.use_amp:
-                with torch.autocast(device_type=self.device.type):
+            try:
+                if self.use_amp:
+                    with torch.autocast(device_type=self.device.type):
+                        loss_dict = self.model(images, targets)
+                        losses = sum(loss for loss in loss_dict.values())
+                    if phase == 'train':
+                        self.scaler.scale(losses).backward()
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
+                else:
                     loss_dict = self.model(images, targets)
                     losses = sum(loss for loss in loss_dict.values())
-                if phase == 'train':
-                    self.scaler.scale(losses).backward()
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-            else:
-                loss_dict = self.model(images, targets)
-                losses = sum(loss for loss in loss_dict.values())
-                if phase == 'train':
-                    losses.backward()
-                    self.optimizer.step()
+                    if phase == 'train':
+                        losses.backward()
+                        self.optimizer.step()
+            except Exception as e:
+                self.logger.error(f"Error during {phase} step: {e}")
+                continue
 
             running_loss += losses.item() * len(images)
+
+            # Log detailed information
+            self.logger.debug(f"Batch {batch_idx+1}/{len(dataloader)}, "
+                              f"Loss: {losses.item():.4f}")
 
             # Update scheduler per batch for warm restarts
             if (phase == 'train' and
@@ -91,7 +102,7 @@ class Trainer:
         torch.set_grad_enabled(True)  # Re-enable gradients
 
         epoch_loss = running_loss / len(self.datasets[phase])
-        print(f'{phase} Loss: {epoch_loss:.4f}')
+        self.logger.info(f'{phase.capitalize()} Loss: {epoch_loss:.4f}')
 
         if (phase == 'train' and
             self.scheduler_name != 'cosine_annealing_warm_restarts'):
@@ -105,14 +116,19 @@ class Trainer:
             self.best_loss = epoch_loss
             self.best_model_wts = self.model.state_dict()
             self.epochs_no_improve = 0
+            self.logger.info(f"New best model found with loss {epoch_loss:.4f}")
         else:
             self.epochs_no_improve += 1
+            self.logger.debug(f"No improvement in validation loss. "
+                              f"Epochs without improvement: {self.epochs_no_improve}")
 
     def save_checkpoint(self):
         if self.best_model_wts:
             self.model.load_state_dict(self.best_model_wts)
         os.makedirs(self.checkpoint_dir, exist_ok=True)
+        checkpoint_path = os.path.join(self.checkpoint_dir, 'best_model.pth')
         torch.save(
             self.model.state_dict(),
-            os.path.join(self.checkpoint_dir, 'best_model.pth')
+            checkpoint_path
         )
+        self.logger.info(f"Model saved to {checkpoint_path}")

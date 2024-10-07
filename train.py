@@ -17,9 +17,15 @@ from utils.dataset import ObjectDetectionDataset
 from utils.transforms import get_transform
 from utils.sampler import BalancedSampler
 from utils.trainer import Trainer
-
+import logging
+from utils.logger import setup_logging
 
 def main(config):
+    # Set up logging
+    setup_logging(config)
+    logger = logging.getLogger(__name__)
+    logger.info("Starting training script")
+
     # Set seeds for reproducibility
     seed = config['training']['seed']
     random.seed(seed)
@@ -29,8 +35,10 @@ def main(config):
 
     cudnn.deterministic = True
     cudnn.benchmark = False
+    logger.debug(f"Seed set to {seed}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Using device: {device}")
 
     # Prepare data
     split_ratios = (
@@ -38,6 +46,7 @@ def main(config):
         config['data']['val_split'],
         config['data']['test_split']
     )
+    logger.debug(f"Split ratios: {split_ratios}")
 
     datasets = {
         'train': ObjectDetectionDataset(
@@ -58,13 +67,16 @@ def main(config):
 
     num_classes = datasets['train'].num_classes
     config['model']['num_classes'] = num_classes
+    logger.info(f"Number of classes: {num_classes}")
 
     model = get_model(config, num_classes).to(device)
+    logger.info(f"Model {config['model']['detection_model']} initialized")
 
     # Determine if we need to use BalancedSampler
     imbalance_method = config['training'].get(
         'class_imbalance_handling', {}
     ).get('method', 'none')
+    logger.debug(f"Class imbalance handling method: {imbalance_method}")
 
     if imbalance_method == 'balanced_sampler':
         train_sampler = BalancedSampler(
@@ -73,9 +85,11 @@ def main(config):
             replacement=True
         )
         shuffle = False
+        logger.info("Using BalancedSampler for training")
     else:
         train_sampler = None
         shuffle = True
+        logger.info("Using default data sampler for training")
 
     dataloaders = {
         'train': DataLoader(
@@ -94,10 +108,12 @@ def main(config):
             collate_fn=lambda x: tuple(zip(*x))
         )
     }
+    logger.info("Dataloaders initialized")
 
     weight_decay = config['training'].get('weight_decay', 0.0)
     optimizer_type = config['training']['optimizer']
     learning_rate = config['training']['learning_rate']
+    logger.debug(f"Optimizer: {optimizer_type}, Learning rate: {learning_rate}, Weight decay: {weight_decay}")
 
     if optimizer_type == 'adam':
         optimizer = Adam(
@@ -120,9 +136,11 @@ def main(config):
         )
     else:
         raise ValueError("Unsupported optimizer type")
+    logger.info(f"Optimizer {optimizer_type} initialized")
 
     scheduler_config = config['training']['scheduler']
     scheduler_name = scheduler_config['name']
+    logger.debug(f"Scheduler: {scheduler_name}")
 
     if scheduler_name == 'step_lr':
         scheduler = StepLR(
@@ -145,6 +163,7 @@ def main(config):
         )
     else:
         raise ValueError("Unsupported scheduler type")
+    logger.info(f"Scheduler {scheduler_name} initialized")
 
     trainer = Trainer(
         model=model,
@@ -156,7 +175,9 @@ def main(config):
         config=config
     )
 
+    logger.info("Starting training")
     trainer.train()
+    logger.info("Training completed")
 
 
 if __name__ == '__main__':

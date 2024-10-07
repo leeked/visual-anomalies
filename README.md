@@ -19,6 +19,29 @@ Features
 - Implements overfitting mitigation techniques such as early stopping
   and weight decay.
 - Supports Cosine Annealing with Warm Restarts scheduler for training.
+- **Integrated debugging system using Python's logging module for
+  detailed tracking of training variables and issues.**
+
+Debugging System
+----------------
+
+To facilitate easier debugging and tracking of variables during training,
+the codebase uses Python's `logging` module. The logging configuration
+can be adjusted via the `configs/default.yaml` file under the `logging`
+section.
+
+Example logging configuration:
+
+```yaml
+logging:
+  log_dir: logs
+  checkpoint_dir: checkpoints
+  log_level: 'DEBUG'  # Options: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+```
+
+- **Log Levels:** You can set the `log_level` to control the verbosity of the logs. For detailed debugging information, set it to `'DEBUG'`.
+- **Log Files:** Logs are saved to `training.log` in the specified `log_dir`. Logs are also printed to the console.
+- **Debug Information:** The logs include detailed information about the training process, including batch losses, epochs, model saving, and any errors that occur during training.
 
 Data Format
 -----------
@@ -78,6 +101,8 @@ install.
   `cosine_annealing_warm_restarts` and specify the necessary parameters.
 
 ### Train the Model
+
+To enable detailed debugging information, set the `log_level` to `'DEBUG'` in your configuration file.
 
 ```python train.py --config configs/default.yaml```
 

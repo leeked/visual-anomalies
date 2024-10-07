@@ -64,3 +64,4 @@ metrics:
 logging:
   log_dir: logs
   checkpoint_dir: checkpoints
+  log_level: 'DEBUG'  # Options: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
