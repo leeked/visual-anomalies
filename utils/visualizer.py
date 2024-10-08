@@ -24,7 +24,7 @@ class Visualizer:
         self.model.eval()
         with torch.no_grad():
             for idx, (images, targets) in enumerate(self.dataloader):
-                if idx >= 5:  # Visualize 5 samples
+                if idx >= 10:  # Visualize 10 samples
                     break
                 image = images[0].to(self.device)
                 target = targets[0]

@@ -19,8 +19,59 @@ Features
 - Implements overfitting mitigation techniques such as early stopping
   and weight decay.
 - Supports Cosine Annealing with Warm Restarts scheduler for training.
-- **Integrated debugging system using Python's logging module for
-  detailed tracking of training variables and issues.**
+- Integrated debugging system using Python's logging module for
+  detailed tracking of training variables and issues.
+- **Supports multi-GPU and multi-node distributed training using
+  PyTorch's Distributed Data Parallel (DDP).**
+
+Distributed Training
+--------------------
+
+To leverage multiple GPUs and multiple nodes for training, the codebase
+supports distributed training using PyTorch's Distributed Data Parallel (DDP).
+
+### Running Distributed Training
+
+To run distributed training, you need to launch the training script using
+`torch.distributed.launch` or `torchrun`.
+
+#### Using `torch.distributed.launch` (PyTorch < 1.9)
+
+```bash
+python -m torch.distributed.launch --nproc_per_node=NUM_GPUS train.py --config configs/default.yaml
+```
+
+**Using `torchrun` (PyTorch >= 1.9)**
+
+```bash
+torchrun --nproc_per_node=NUM_GPUS train.py --config configs/default.yaml
+```
+
+Replace `NUM_GPUS` with the number of GPUs you want to use per node.
+
+For multi-node training, you need to set additional environment variables such as `WORLD_SIZE`, `MASTER_ADDR`, and `MASTER_PORT`.
+
+Example for multi-node training:
+
+```bash
+torchrun --nproc_per_node=NUM_GPUS --nnodes=NUM_NODES --node_rank=NODE_RANK --master_addr=MASTER_ADDR --master_port=MASTER_PORT train.py --config configs/default.yaml
+```
+
+- `NUM_NODES`: Total number of nodes participating in the training.
+
+- `NODE_RANK`: Rank of the current node (from `0` to `NUM_NODES - 1`).
+
+- `MASTER_ADDR`: Address of the master node (e.g., IP address).
+
+- `MASTER_PORT`: Port on the master node for communication.
+
+**Notes**
+
+- The code automatically initializes the distributed process group and wraps the model with `DistributedDataParallel`.
+
+- The `DistributedSampler` is used for the training dataset to ensure that each process works on a unique subset of data.
+
+- Logging and checkpoint saving are performed only on the main process (rank `0`).
 
 Debugging System
 ----------------
@@ -103,6 +154,8 @@ install.
 ### Train the Model
 
 To enable detailed debugging information, set the `log_level` to `'DEBUG'` in your configuration file.
+
+For single GPU training:
 
 ```python train.py --config configs/default.yaml```
 

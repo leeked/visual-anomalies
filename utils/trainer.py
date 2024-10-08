@@ -2,9 +2,10 @@ import os
 import torch
 import logging
 
+
 class Trainer:
     def __init__(self, model, device, optimizer, scheduler,
-                 dataloaders, datasets, config):
+                 dataloaders, datasets, config, train_sampler=None):
         self.model = model
         self.device = device
         self.optimizer = optimizer
@@ -12,10 +13,11 @@ class Trainer:
         self.dataloaders = dataloaders
         self.datasets = datasets
         self.config = config
+        self.train_sampler = train_sampler
 
         self.num_epochs = config['training']['epochs']
         self.use_amp = config['training'].get('use_amp', False)
-        self.scaler = torch.amp.GradScaler() if self.use_amp else None
+        self.scaler = torch.cuda.amp.GradScaler() if self.use_amp else None
 
         self.best_loss = float('inf')
         self.best_model_wts = None
@@ -30,10 +32,17 @@ class Trainer:
         self.logger = logging.getLogger(__name__)
         self.logger.info("Trainer initialized")
 
+        self.rank = config.get('rank', 0)
+        self.world_size = config.get('world_size', 1)
+        self.is_main_process = self.rank == 0
+
     def train(self):
         for epoch in range(self.num_epochs):
             self.logger.info(f'Epoch {epoch + 1}/{self.num_epochs}')
             self.logger.info('-' * 10)
+
+            if self.train_sampler and hasattr(self.train_sampler, 'set_epoch'):
+                self.train_sampler.set_epoch(epoch)
 
             for phase in ['train', 'val']:
                 self._run_epoch(phase, epoch)
@@ -51,7 +60,7 @@ class Trainer:
             self.model.train()
             torch.set_grad_enabled(True)
         else:
-            self.model.train()  # To get losses during validation
+            self.model.eval()
             torch.set_grad_enabled(False)
 
         running_loss = 0.0
@@ -67,30 +76,33 @@ class Trainer:
             if phase == 'train':
                 self.optimizer.zero_grad()
 
-            try:
-                if self.use_amp:
-                    with torch.autocast(device_type=self.device.type):
-                        loss_dict = self.model(images, targets)
-                        losses = sum(loss for loss in loss_dict.values())
-                    if phase == 'train':
+                try:
+                    if self.use_amp:
+                        with torch.cuda.amp.autocast():
+                            loss_dict = self.model(images, targets)
+                            losses = sum(loss for loss in loss_dict.values())
                         self.scaler.scale(losses).backward()
                         self.scaler.step(self.optimizer)
                         self.scaler.update()
-                else:
-                    loss_dict = self.model(images, targets)
-                    losses = sum(loss for loss in loss_dict.values())
-                    if phase == 'train':
+                    else:
+                        loss_dict = self.model(images, targets)
+                        losses = sum(loss for loss in loss_dict.values())
                         losses.backward()
                         self.optimizer.step()
-            except Exception as e:
-                self.logger.error(f"Error during {phase} step: {e}")
-                continue
+                except Exception as e:
+                    self.logger.error(f"Error during {phase} step: {e}")
+                    continue
+            else:
+                with torch.no_grad():
+                    loss_dict = self.model(images, targets)
+                    losses = sum(loss for loss in loss_dict.values())
 
             running_loss += losses.item() * len(images)
 
             # Log detailed information
-            self.logger.debug(f"Batch {batch_idx+1}/{len(dataloader)}, "
-                              f"Loss: {losses.item():.4f}")
+            if self.is_main_process and self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(f"Batch {batch_idx+1}/{len(dataloader)}, "
+                                  f"Loss: {losses.item():.4f}")
 
             # Update scheduler per batch for warm restarts
             if (phase == 'train' and
@@ -123,12 +135,13 @@ class Trainer:
                               f"Epochs without improvement: {self.epochs_no_improve}")
 
     def save_checkpoint(self):
-        if self.best_model_wts:
-            self.model.load_state_dict(self.best_model_wts)
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
-        checkpoint_path = os.path.join(self.checkpoint_dir, 'best_model.pth')
-        torch.save(
-            self.model.state_dict(),
-            checkpoint_path
-        )
-        self.logger.info(f"Model saved to {checkpoint_path}")
+        if self.is_main_process:
+            if self.best_model_wts:
+                self.model.load_state_dict(self.best_model_wts)
+            os.makedirs(self.checkpoint_dir, exist_ok=True)
+            checkpoint_path = os.path.join(self.checkpoint_dir, 'best_model.pth')
+            torch.save(
+                self.model.state_dict(),
+                checkpoint_path
+            )
+            self.logger.info(f"Model saved to {checkpoint_path}")
