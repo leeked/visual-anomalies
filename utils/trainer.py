@@ -17,7 +17,7 @@ class Trainer:
 
         self.num_epochs = config['training']['epochs']
         self.use_amp = config['training'].get('use_amp', False)
-        self.scaler = torch.cuda.amp.GradScaler() if self.use_amp else None
+        self.scaler = torch.amp.GradScaler() if self.use_amp else None
 
         self.best_loss = float('inf')
         self.best_model_wts = None
@@ -60,7 +60,7 @@ class Trainer:
             self.model.train()
             torch.set_grad_enabled(True)
         else:
-            self.model.eval()
+            self.model.train() # Specifically for FasterRCNN
             torch.set_grad_enabled(False)
 
         running_loss = 0.0
@@ -78,7 +78,7 @@ class Trainer:
 
                 try:
                     if self.use_amp:
-                        with torch.cuda.amp.autocast():
+                        with torch.autocast(device_type=self.device.type):
                             loss_dict = self.model(images, targets)
                             losses = sum(loss for loss in loss_dict.values())
                         self.scaler.scale(losses).backward()
@@ -110,8 +110,6 @@ class Trainer:
                 self.scheduler.step(
                     epoch + batch_idx / len(dataloader)
                 )
-
-        torch.set_grad_enabled(True)  # Re-enable gradients
 
         epoch_loss = running_loss / len(self.datasets[phase])
         self.logger.info(f'{phase.capitalize()} Loss: {epoch_loss:.4f}')

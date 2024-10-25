@@ -22,11 +22,11 @@ def get_transform(train, config):
             height = aug_cfg.get('crop_height', 512)
             width = aug_cfg.get('crop_width', 512)
             augmentations.append(A.RandomCrop(height=height, width=width, p=aug_cfg.get('random_crop_prob', 0.5)))
-    # Normalize and convert to tensor
-    normalize_mean = config['data'].get('normalize_mean', [0.485, 0.456, 0.406])
-    normalize_std = config['data'].get('normalize_std', [0.229, 0.224, 0.225])
+    # # Normalize and convert to tensor
+    # normalize_mean = config['data'].get('normalize_mean', [0.485, 0.456, 0.406])
+    # normalize_std = config['data'].get('normalize_std', [0.229, 0.224, 0.225])
     augmentations.extend([
-        A.Normalize(mean=normalize_mean, std=normalize_std),
+        A.Normalize(mean=(0.5, 0.5, 0.5), std=(1, 1, 1), max_pixel_value=255.0),
         ToTensorV2()
     ])
     return A.Compose(augmentations, bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels'], min_visibility=0.3))
